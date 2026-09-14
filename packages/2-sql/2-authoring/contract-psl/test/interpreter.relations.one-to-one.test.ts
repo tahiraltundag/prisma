@@ -192,6 +192,9 @@ model Profiles {
           code: 'PSL_NON_UNIQUE_BACKRELATION',
           message: expect.stringContaining('Users.profiles'),
         }),
+        expect.objectContaining({
+          message: expect.stringContaining('unique @@index([...], unique: true)'),
+        }),
       ]),
     );
   });
