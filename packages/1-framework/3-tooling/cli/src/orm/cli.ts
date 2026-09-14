@@ -5,6 +5,7 @@ import { createCli, telemetryCommandGroup } from '@prisma/cli-engine';
 import { version as CLI_VERSION } from '../../package.json' with { type: 'json' };
 import { createControlClient } from '../control-api/client';
 import type { CreateControlClient } from '../control-api/types';
+import { contractConvertCommand } from './contract/convert';
 import { contractEmitCommand } from './contract/emit';
 import { contractInferCommand } from './contract/infer';
 import { createDbInitCommand } from './db/init';
@@ -98,6 +99,7 @@ export function createBinCommands(createClient: CreateControlClient): MountedTre
     'contract emit': contractEmitCommand,
     'contract format': formatCommand,
     'contract infer': contractInferCommand,
+    'contract convert': contractConvertCommand,
     'db init': createDbInitCommand(createClient),
     'db migrate': createMigrateCommand(createClient),
     'db schema': createDbSchemaCommand(createClient),

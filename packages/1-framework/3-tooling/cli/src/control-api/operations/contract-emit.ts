@@ -195,6 +195,68 @@ function validateProviderResult(providerResult: unknown): ValidatedProviderResul
   };
 }
 
+export interface ResolvedContractSource {
+  readonly stack: ReturnType<typeof createControlStack>;
+  /** The provider's contract, validated to the loose `Contract` envelope. */
+  readonly validatedContract: Extract<ValidatedProviderResult, { readonly ok: true }>;
+}
+
+/**
+ * Loads the configured contract source the way `contract emit` does: builds
+ * the control stack, hands the source its context, and validates what it
+ * returns. `contract convert` shares this so both commands read the same
+ * contract and report source diagnostics identically.
+ *
+ * @throws {CliStructuredError} when the source fails or returns an invalid payload
+ * @throws {DOMException} `AbortError` if cancelled via `signal`
+ */
+export async function resolveContractSource(options: {
+  readonly config: ContractEmitOptions['config'];
+  readonly contractConfig: NonNullable<ContractEmitOptions['config']['contract']>;
+  readonly signal: AbortSignal | undefined;
+  readonly onProgress: OnControlProgress | undefined;
+}): Promise<ResolvedContractSource> {
+  const { config, contractConfig, onProgress } = options;
+  const signal = options.signal ?? new AbortController().signal;
+  const unlessAborted = abortable(signal);
+  const stack = createControlStack(config);
+
+  const sourceContext = {
+    composedExtensions: stack.extensions.map((p) => p.id),
+    composedExtensionContracts: stack.extensionContracts,
+    authoringContributions: stack.authoringContributions,
+    codecLookup: stack.codecLookup,
+    controlMutationDefaults: stack.controlMutationDefaults,
+    resolvedInputs: contractConfig.source.inputs ?? [],
+    capabilities: stack.capabilities,
+  };
+
+  startSpan(onProgress, 'resolveSource', 'Resolving contract source...');
+  let providerResult: Awaited<ReturnType<typeof contractConfig.source.load>>;
+  try {
+    providerResult = await unlessAborted(contractConfig.source.load(sourceContext));
+  } catch (error) {
+    endSpan(onProgress, 'resolveSource', 'error');
+    if (signal.aborted || (isRecord(error) && error['name'] === 'AbortError')) {
+      throw error;
+    }
+    throw failedToResolveContractSource(
+      error instanceof Error ? error.message : String(error),
+      'Ensure contract.source.load resolves to ok(Contract) or returns structured diagnostics.',
+      undefined,
+      error,
+    );
+  }
+
+  const validatedContract = validateProviderResult(providerResult);
+  if (!validatedContract.ok) {
+    endSpan(onProgress, 'resolveSource', 'error');
+    throw validatedContract.error;
+  }
+  endSpan(onProgress, 'resolveSource', 'ok');
+  return { stack, validatedContract };
+}
+
 /**
  * Canonical contract emit operation.
  *
@@ -262,41 +324,12 @@ export async function executeContractEmit(
   const { jsonPath: outputJsonPath, dtsPath: outputDtsPath } = outputPaths;
 
   return queueEmitByOutput(outputJsonPath, async () => {
-    const stack = createControlStack(config);
-
-    const sourceContext = {
-      composedExtensions: stack.extensions.map((p) => p.id),
-      composedExtensionContracts: stack.extensionContracts,
-      authoringContributions: stack.authoringContributions,
-      codecLookup: stack.codecLookup,
-      controlMutationDefaults: stack.controlMutationDefaults,
-      resolvedInputs: contractConfig.source.inputs ?? [],
-      capabilities: stack.capabilities,
-    };
-
-    startSpan(onProgress, 'resolveSource', 'Resolving contract source...');
-    let providerResult: Awaited<ReturnType<typeof contractConfig.source.load>>;
-    try {
-      providerResult = await unlessAborted(contractConfig.source.load(sourceContext));
-    } catch (error) {
-      endSpan(onProgress, 'resolveSource', 'error');
-      if (signal.aborted || (isRecord(error) && error['name'] === 'AbortError')) {
-        throw error;
-      }
-      throw failedToResolveContractSource(
-        error instanceof Error ? error.message : String(error),
-        'Ensure contract.source.load resolves to ok(Contract) or returns structured diagnostics.',
-        undefined,
-        error,
-      );
-    }
-
-    const validatedContract = validateProviderResult(providerResult);
-    if (!validatedContract.ok) {
-      endSpan(onProgress, 'resolveSource', 'error');
-      throw validatedContract.error;
-    }
-    endSpan(onProgress, 'resolveSource', 'ok');
+    const { stack, validatedContract } = await resolveContractSource({
+      config,
+      contractConfig,
+      signal,
+      onProgress,
+    });
 
     startSpan(onProgress, 'emit', 'Emitting contract...');
     let emitResult: Awaited<ReturnType<typeof emit>>;
