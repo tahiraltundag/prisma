@@ -1,7 +1,7 @@
 # Prisma 7 contract source and converter — Plan
 
 **Spec:** `projects/prisma7-contract-source/spec.md`
-**Linear Project:** to be created by the operator (no Linear tool in the shaping session). Issue IDs below are placeholders.
+**Tracker:** none; the operator decided Linear is not needed for this project. **PR for slices 1 and 4:** https://github.com/prisma/orm/pull/30287
 
 ## At a glance
 
@@ -11,7 +11,7 @@ One stack of three slices. Slice 1 lands the parser additions, the config change
 
 ### Stack (deliver in order)
 
-1. **Slice `01-postgres-source`** — Linear: TML-____ — **built and reviewed; PR text drafted, awaiting the Linear ticket**
+1. **Slice `01-postgres-source`** — Linear: TML-____ — **built and reviewed; PR https://github.com/prisma/orm/pull/30287**
    - **Outcome:** A Postgres project configured with `prisma7Schema('prisma/schema.prisma')` emits, signs, and verifies with zero findings against the database Prisma 7 built.
    - **Builds on:** nothing.
    - **Hands to:** (a) parser grammar that reads Prisma 7 enum member attributes and `view` blocks; (b) `defineConfig({ contract: ContractConfig })` accepted by the Postgres extension; (c) the `prisma7Schema` factory shape and `source.load` contract; (d) relation pairing decoupled from `FieldSymbol`; (e) a fixture corpus with a schema plus the SQL Prisma 7 generated for it.
@@ -29,7 +29,7 @@ One stack of three slices. Slice 1 lands the parser additions, the config change
    - **Hands to:** the cutover path; project close-out.
    - **Focus:** a contract-to-PSL hook on the Postgres and Mongo target descriptors, `packages/1-framework/3-tooling/cli/src/orm/contract/convert.ts`, CLI README.
 
-4. **Slice `04-prisma7-adoption-example`** — Linear: TML-____ (added 2026-09-14 at the operator's request) — **built and reviewed; ships in the slice 1 PR**
+4. **Slice `04-prisma7-adoption-example`** — Linear: TML-____ (added 2026-09-14 at the operator's request) — **built and reviewed; ships in PR 30287**
    - **Outcome:** `examples/prisma7-adoption` shows a Prisma 7 project migrating on Prisma 7 while Prisma 8 adopts, signs, verifies, and queries the same database through `prisma7Schema`; its test runs the whole story in CI.
    - **Builds on:** slice 1.
    - **Hands to:** the worked example the upgrade guide's phase 2 can point at instead of `contract infer` plus hand edits.
