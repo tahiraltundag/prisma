@@ -6,8 +6,7 @@
  * supported schema is kept as a file snapshot beside dispatch 1's hand-written
  * spelling so the two can be compared.
  */
-import { existsSync, mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import postgresAdapter from '@internal/adapter-postgres/control';
 import type { ContractSourceContext } from '@internal/cli/config-types';
 import type { Contract } from '@internal/contract/types';
@@ -27,7 +26,7 @@ import postgresPackRef from '@internal/target-postgres/pack';
 import { prisma7PostgresTypeMap } from '@internal/target-postgres/prisma7-type-map';
 import { postgresCreateNamespace } from '@internal/target-postgres/types';
 import { dirname, join } from 'pathe';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { expectSameContract } from './round-trip.helpers';
 
 const testDir = dirname(new URL(import.meta.url).pathname);
@@ -38,6 +37,8 @@ const corpusDir = join(
 );
 
 const CONVERT_HEADER = '// Converted from prisma/schema.prisma by `prisma contract convert`.';
+const scratchDir = join(testDir, '../../../../wip/printer-round-trip');
+const CORPUS_CASE_COUNT = 17;
 
 const stack = createControlStack({
   family: sql,
@@ -77,7 +78,8 @@ async function loadPrisma7(inputPath: string): Promise<Contract> {
 }
 
 async function loadPrisma8Text(text: string, caseName: string): Promise<Contract> {
-  const dir = mkdtempSync(join(tmpdir(), `prisma7-convert-${caseName}-`));
+  const dir = join(scratchDir, caseName);
+  mkdirSync(dir, { recursive: true });
   const contractPath = join(dir, 'contract.prisma');
   writeFileSync(contractPath, text);
   const loaded = await prismaContract(contractPath, {
@@ -117,6 +119,14 @@ const integrationCases = ['supported-verify', 'relations'].map((name) => ({
 }));
 
 describe('Prisma 7 contract printed as Prisma 8 PSL interprets to the same contract', () => {
+  afterAll(() => {
+    rmSync(scratchDir, { recursive: true, force: true });
+  });
+
+  it('covers the whole Prisma 7 fixture corpus', () => {
+    expect(corpusCases.map((testCase) => testCase.name)).toHaveLength(CORPUS_CASE_COUNT);
+  });
+
   it.each([...corpusCases, ...integrationCases])('$name', async ({ name, input }) => {
     const prisma7 = await loadPrisma7(input);
     const printed = printContract(prisma7);
