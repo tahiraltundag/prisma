@@ -18,6 +18,8 @@ import { PG_ENUM_CODEC_ID } from './print-types';
 
 const PRINTABLE_ENTRY_KINDS: ReadonlySet<string> = new Set(['table', 'native_enum', 'valueSet']);
 
+const PSL_IDENTIFIER = /^[A-Za-z_]\w*$/;
+
 /**
  * Prints a Postgres contract as the Prisma 8 PSL document that interprets
  * back to the same contract: every namespace becomes a `namespace { … }`
@@ -64,12 +66,22 @@ export function printPostgresPslContract(contract: Contract<SqlStorage>): PslDoc
       }),
     );
     const enumBlocks: PslExtensionBlock[] = Object.values(entries.native_enum ?? {}).map(
-      (nativeEnum) =>
-        buildNativeEnumBlock(
-          enumHandleByTypeName.get(nativeEnum.typeName) ?? nativeEnum.typeName,
-          nativeEnum.typeName,
-          nativeEnum.members,
-        ),
+      (nativeEnum) => {
+        const handle = enumHandleByTypeName.get(nativeEnum.typeName) ?? nativeEnum.typeName;
+        if (!PSL_IDENTIFIER.test(handle)) {
+          throw new InternalError(
+            `Enum "${nativeEnum.typeName}": block name "${handle}" is not a PSL identifier, so the enum has no Prisma 8 PSL spelling`,
+          );
+        }
+        for (const member of nativeEnum.members) {
+          if (!PSL_IDENTIFIER.test(member)) {
+            throw new InternalError(
+              `Enum "${nativeEnum.typeName}": value "${member}" is not a PSL identifier, so the member has no Prisma 8 PSL spelling`,
+            );
+          }
+        }
+        return buildNativeEnumBlock(handle, nativeEnum.typeName, nativeEnum.members);
+      },
     );
     namespaces.push(
       makePslNamespace({

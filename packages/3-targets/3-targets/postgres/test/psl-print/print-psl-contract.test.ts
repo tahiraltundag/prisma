@@ -18,6 +18,7 @@ import {
   postgresAuthoringPslBlockDescriptors,
 } from '../../src/core/authoring';
 import { PostgresContractSerializer } from '../../src/core/postgres-contract-serializer';
+import type { PostgresNamespaceEntries } from '../../src/core/postgres-schema';
 import { printPostgresPslContract } from '../../src/core/psl-print/print-psl-contract';
 
 const corpusDir = join(
@@ -43,6 +44,47 @@ function printFixture(name: string): string {
     header: '// Converted.',
     pslBlockDescriptors,
   }).replace(/ {2,}/g, ' ');
+}
+
+function loadFixture(name: string) {
+  const json: unknown = JSON.parse(
+    readFileSync(join(corpusDir, name, 'expected-contract.json'), 'utf8'),
+  );
+  return new PostgresContractSerializer().deserializeContract(json);
+}
+
+function withColumnTweak(name: string, columnPatch: Record<string, unknown> = {}) {
+  const contract = loadFixture(name);
+  if (Object.keys(columnPatch).length === 0) return contract;
+  const table = name === 'scalars' ? 'Scalars' : 'User';
+  const column = 'dateTime';
+  const namespace = contract.storage.namespaces['public'];
+  const tableEntry = namespace?.entries.table?.[table];
+  return {
+    ...contract,
+    storage: {
+      ...contract.storage,
+      namespaces: {
+        ...contract.storage.namespaces,
+        public: {
+          ...namespace,
+          entries: {
+            ...namespace?.entries,
+            table: {
+              ...namespace?.entries.table,
+              [table]: {
+                ...tableEntry,
+                columns: {
+                  ...tableEntry?.columns,
+                  [column]: { ...tableEntry?.columns[column], ...columnPatch },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
 }
 
 const corpus = readdirSync(corpusDir)
@@ -138,6 +180,41 @@ describe('printPostgresPslContract', () => {
     );
     expect(printed).toContain('tags Tag[]\n');
     expect(printed).toContain('@@index([B], map: "_PostToTag_B_index")');
+  });
+
+  it('refuses an enum value that is not a PSL identifier, naming the enum and the value', () => {
+    const contract = loadFixture('enum-native');
+    const publicEntries: PostgresNamespaceEntries | undefined =
+      contract.storage.namespaces['public']?.entries;
+    const nativeEnum = publicEntries?.native_enum?.['user_role'];
+    const spaced = {
+      ...contract,
+      storage: {
+        ...contract.storage,
+        namespaces: {
+          ...contract.storage.namespaces,
+          public: {
+            ...contract.storage.namespaces['public'],
+            entries: {
+              ...contract.storage.namespaces['public']?.entries,
+              native_enum: {
+                user_role: { ...nativeEnum, members: ['user role', 'ADMIN'] },
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(() => printPostgresPslContract(spaced as never)).toThrow(
+      /Enum "user_role": value "user role" is not a PSL identifier/,
+    );
+  });
+
+  it('refuses a type param the constructor cannot carry, naming the model and field', () => {
+    const contract = withColumnTweak('scalars', { typeParams: { precision: 3, zone: 'utc' } });
+    expect(() => printPostgresPslContract(contract as never)).toThrow(
+      /Model "Scalars", field "dateTime": type params "zone"/,
+    );
   });
 
   it('refuses a construct with no spelling by naming the model and field', () => {
