@@ -23,7 +23,8 @@ for (const user of users) {
 const alice = users.find((user) => user.email === 'alice@example.com');
 const ormTag = await db.orm.public.Tag.where({ name: 'orm' }).first();
 if (alice === undefined || ormTag === null) {
-  throw new Error('Run `pnpm seed` first.');
+  console.error('Run `pnpm seed` first.');
+  process.exit(1);
 }
 
 const created = await db.orm.public.Post.include('tags').create({
