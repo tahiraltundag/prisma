@@ -11,8 +11,18 @@ import {
   positionalArg,
 } from '../psl-infer/psl-literals';
 
-const BIGINT_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set(['pg/int8@1', 'pg/unboundedint@1']);
-const JSON_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set(['pg/json@1', 'pg/jsonb@1']);
+/**
+ * The Postgres codecs whose literal default the PSL interpreter reads in a
+ * form other than the token's: the inverse of `literalDefaultForm` in
+ * `packages/2-sql/2-authoring/contract-psl/src/literal-default-forms.ts`,
+ * which this package can only reach in tests (`print-defaults.test.ts`
+ * asserts the two agree).
+ */
+export const BIGINT_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set([
+  'pg/int8@1',
+  'pg/unboundedint@1',
+]);
+export const JSON_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set(['pg/json@1', 'pg/jsonb@1']);
 
 /**
  * The `@default(...)` attribute for a storage default. Function defaults go

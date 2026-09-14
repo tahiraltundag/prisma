@@ -9,7 +9,10 @@ import { notOk, ok, type Result } from '@internal/utils/result';
  * token that spells it: an integer literal on a bigint-valued codec is the
  * exact integer, and a string literal on a JSON codec is JSON text. Codec
  * descriptors expose no such discriminator (their traits are equality, order,
- * boolean, numeric, and textual), so the codecs are named here.
+ * boolean, numeric, and textual), so the codecs are named here. The Postgres
+ * printer keeps the inverse lists in
+ * `packages/3-targets/3-targets/postgres/src/core/psl-print/print-defaults.ts`;
+ * its `print-defaults.test.ts` asserts the two agree.
  */
 const BIGINT_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set([
   'pg/int8@1',
