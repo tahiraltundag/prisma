@@ -2,24 +2,31 @@ import type { ColumnDefaultLiteralValue } from '@internal/contract/types';
 import type { ExpressionAst } from '@internal/psl-parser/syntax';
 import { ArrayLiteralAst, NumberLiteralExprAst } from '@internal/psl-parser/syntax';
 import { blindCast } from '@internal/utils/casts';
+import { notOk, ok, type Result } from '@internal/utils/result';
 
 /**
  * Codecs whose literal `@default` value takes a different form from the PSL
  * token that spells it: an integer literal on a bigint-valued codec is the
- * exact integer. Codec descriptors expose no such discriminator (their traits
- * are equality, order, boolean, numeric, and textual), so the codecs are named
- * here.
+ * exact integer, and a string literal on a JSON codec is JSON text. Codec
+ * descriptors expose no such discriminator (their traits are equality, order,
+ * boolean, numeric, and textual), so the codecs are named here.
  */
 const BIGINT_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set([
   'pg/int8@1',
   'pg/unboundedint@1',
   'sqlite/bigint@1',
 ]);
+const JSON_LITERAL_CODEC_IDS: ReadonlySet<string> = new Set([
+  'pg/json@1',
+  'pg/jsonb@1',
+  'sqlite/json@1',
+]);
 
-export type LiteralDefaultForm = 'bigint';
+export type LiteralDefaultForm = 'bigint' | 'json';
 
 export function literalDefaultForm(codecId: string): LiteralDefaultForm | undefined {
   if (BIGINT_LITERAL_CODEC_IDS.has(codecId)) return 'bigint';
+  if (JSON_LITERAL_CODEC_IDS.has(codecId)) return 'json';
   return undefined;
 }
 
@@ -41,6 +48,16 @@ export function bigintLiteralFromToken(
     ColumnDefaultLiteralValue,
     'the bigint codecs encode a bigint to JSON as decimal text'
   >(BigInt(text));
+}
+
+export function jsonLiteralFromText(text: string): Result<ColumnDefaultLiteralValue, string> {
+  try {
+    return ok(
+      blindCast<ColumnDefaultLiteralValue, 'JSON.parse yields a JSON value'>(JSON.parse(text)),
+    );
+  } catch (error) {
+    return notOk(error instanceof Error ? error.message : String(error));
+  }
 }
 
 export function listElementExpressions(
