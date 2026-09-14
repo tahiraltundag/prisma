@@ -293,6 +293,10 @@ A SQL identifier or literal fails escaping-safety checks while rendering DDL/SQL
 
 A Mongo variant model declares an index that conflicts with the discriminator scope of its variant, or a SQL index option value is not a string, finite number, or boolean. Raised by the Mongo contract builder and the Postgres index DDL renderer. Payload: `variantName`, `indexLabel`, `reason`, `key`.
 
+### CONTRACT.CONVERT_REQUIRES_PRISMA7_SOURCE
+
+`contract convert` applies only to a contract source created with `prisma7Schema(...)`: the configured source has another format (`psl`, `typescript`) or the config has no contract source. Nothing is written. Payload: `format`.
+
 ### CONTRACT.CONVERT_UNSUPPORTED
 
 `contract convert` is not available: the configured target's descriptor does not provide the `printPslContract` hook, so the loaded contract cannot be printed as Prisma 8 PSL. Raised by the SQL family instance. Payload: `targetId`.

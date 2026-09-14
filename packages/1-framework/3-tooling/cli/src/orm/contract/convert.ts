@@ -3,7 +3,7 @@ import { printPsl as printPslFromAst } from '@internal/psl-printer';
 import type { Block, Presentations } from '@prisma/cli-engine';
 import { flag } from '@prisma/cli-engine';
 import { notOk, ok } from '@prisma/cli-engine/protocol';
-import { relative } from 'pathe';
+import { isAbsolute, relative } from 'pathe';
 import { createControlClient as createDefaultControlClient } from '../../control-api/client';
 import { resolveContractSource as resolveContractSourceOperation } from '../../control-api/operations/contract-emit';
 import type { ControlClient, ControlClientOptions } from '../../control-api/types';
@@ -119,7 +119,13 @@ export function createContractConvertCommand({
           ),
         );
       }
-      const input = contractConfig.source.inputs?.[0];
+      // The config loader resolves source inputs to absolute paths; the header
+      // and the document show the path as the user would write it.
+      const configuredInput = contractConfig.source.inputs?.[0];
+      const input =
+        configuredInput !== undefined && isAbsolute(configuredInput)
+          ? relative(ctx.cwd, configuredInput)
+          : configuredInput;
 
       const client = createControlClient({
         family: ctx.config.family,
