@@ -64,7 +64,7 @@ function failedToResolveContractSource(
 interface DiagnosticLocation {
   readonly sourceId: string | undefined;
   readonly line: number | undefined;
-  readonly column: number | undefined;
+  readonly character: number | undefined;
 }
 
 function diagnosticLocation(diagnostic: Record<string, unknown>): DiagnosticLocation {
@@ -72,13 +72,16 @@ function diagnosticLocation(diagnostic: Record<string, unknown>): DiagnosticLoca
   const span = isRecord(diagnostic['span']) ? diagnostic['span'] : undefined;
   const start = span && isRecord(span['start']) ? span['start'] : undefined;
   const line = start && typeof start['line'] === 'number' ? start['line'] : undefined;
-  const column = start && typeof start['column'] === 'number' ? start['column'] : undefined;
-  return { sourceId, line, column };
+  // biome-ignore lint/plugin/no-family-vocabulary: a text position in the source file; the span calls it column
+  const character = start && typeof start['column'] === 'number' ? start['column'] : undefined;
+  return { sourceId, line, character };
 }
 
-function formatLocation({ sourceId, line, column }: DiagnosticLocation): string | undefined {
+function formatLocation({ sourceId, line, character }: DiagnosticLocation): string | undefined {
   if (sourceId === undefined) return undefined;
-  return line !== undefined && column !== undefined ? `${sourceId}:${line}:${column}` : sourceId;
+  return line !== undefined && character !== undefined
+    ? `${sourceId}:${line}:${character}`
+    : sourceId;
 }
 
 /**
