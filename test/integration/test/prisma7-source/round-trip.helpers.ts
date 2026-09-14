@@ -17,15 +17,26 @@ interface SerializedPostgresContract {
   readonly execution?: { readonly executionHash?: unknown };
 }
 
+function requireHash(value: unknown, name: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`${name} is missing from the serialized contract; nothing to compare`);
+  }
+  return value;
+}
+
 function comparablePlanes(contract: Contract) {
   const serialized: SerializedPostgresContract = new PostgresContractSerializer().serializeContract(
     contract as Contract<SqlStorage>,
   );
+  const domain = serialized.domain;
+  if (typeof domain !== 'object' || domain === null || Object.keys(domain).length === 0) {
+    throw new Error('domain plane is missing from the serialized contract; nothing to compare');
+  }
   return {
-    domain: serialized.domain,
-    storageHash: serialized.storage?.storageHash,
-    executionHash: serialized.execution?.executionHash,
-    profileHash: serialized.profileHash,
+    domain,
+    storageHash: requireHash(serialized.storage?.storageHash, 'storageHash'),
+    executionHash: requireHash(serialized.execution?.executionHash, 'executionHash'),
+    profileHash: requireHash(serialized.profileHash, 'profileHash'),
   };
 }
 
