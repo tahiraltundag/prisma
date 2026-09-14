@@ -15,6 +15,7 @@ import postgresDriver from '@internal/driver-postgres/control';
 import sql from '@internal/family-sql/control';
 import { createControlStack } from '@internal/framework-components/control';
 import { printPsl } from '@internal/psl-printer';
+import type { SqlStorage } from '@internal/sql-contract/types';
 import { prisma7Schema } from '@internal/sql-contract-prisma7/provider';
 import { prismaContract } from '@internal/sql-contract-psl/provider';
 import { PG_INT_CODEC_ID, PG_TEXT_CODEC_ID } from '@internal/target-postgres/codec-ids';
@@ -92,7 +93,7 @@ function printContract(contract: Contract): string {
   if (postgres.printPslContract === undefined) {
     throw new Error('the Postgres target descriptor has no printPslContract hook');
   }
-  return printPsl(postgres.printPslContract(contract), {
+  return printPsl(postgres.printPslContract(contract as Contract<SqlStorage>), {
     header: CONVERT_HEADER,
     pslBlockDescriptors: stack.authoringContributions.pslBlockDescriptors,
     codecLookup: stack.codecLookup,
