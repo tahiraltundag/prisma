@@ -17,6 +17,9 @@ interface SerializedPostgresContract {
   readonly execution?: { readonly executionHash?: unknown };
 }
 
+/** A contract with no generators has no execution section; absence is compared explicitly, never as `undefined`. */
+const NO_EXECUTION_SECTION = 'no execution section';
+
 function requireHash(value: unknown, name: string): string {
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`${name} is missing from the serialized contract; nothing to compare`);
@@ -35,7 +38,10 @@ function comparablePlanes(contract: Contract) {
   return {
     domain,
     storageHash: requireHash(serialized.storage?.storageHash, 'storageHash'),
-    executionHash: requireHash(serialized.execution?.executionHash, 'executionHash'),
+    executionHash:
+      serialized.execution === undefined
+        ? NO_EXECUTION_SECTION
+        : requireHash(serialized.execution.executionHash, 'executionHash'),
     profileHash: requireHash(serialized.profileHash, 'profileHash'),
   };
 }
