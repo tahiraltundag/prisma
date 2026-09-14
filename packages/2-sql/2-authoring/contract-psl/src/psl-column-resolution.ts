@@ -1,6 +1,7 @@
 import type { ContractSourceDiagnostic } from '@internal/config/config-types';
 import type {
   ColumnDefault,
+  ColumnDefaultLiteralValue,
   ExecutionMutationDefaultPhases,
   ValueSetRef,
 } from '@internal/contract/types';
@@ -34,11 +35,18 @@ import type {
   ResolvedTypeConstructorCall,
   SymbolTable,
 } from '@internal/psl-parser';
-import type { SourceFile } from '@internal/psl-parser/syntax';
+import type { ExpressionAst, SourceFile } from '@internal/psl-parser/syntax';
 
 import { InternalError } from '@internal/utils/internal-error';
 import { contractError } from './contract-errors';
 import { lowerDefaultFunctionWithRegistry } from './default-function-registry';
+import {
+  bigintLiteralFromToken,
+  type LiteralDefaultForm,
+  listElementExpressions,
+  literalDefaultForm,
+} from './literal-default-forms';
+import { getAttribute } from './psl-attribute-parsing';
 
 import { mapPslHelperArgs } from './psl-authoring-arguments';
 import {
@@ -730,9 +738,16 @@ export function lowerDefaultForField(input: {
   });
   if (interpreted === undefined) return {};
   const value = interpreted.value;
+  const form = literalDefaultForm(input.columnDescriptor.codecId);
+  const attribute = getAttribute(input.field.attributes, 'default');
+  const argument = attribute?.args.find((arg) => arg.kind === 'positional')?.expression;
 
   if (Array.isArray(value)) {
-    return { defaultValue: { kind: 'literal', value: [...value] } };
+    const elements = listElementExpressions(argument);
+    const lowered: ColumnDefaultLiteralValue[] = value.map((element, index) =>
+      literalDefaultValue(form, element, elements?.[index]),
+    );
+    return { defaultValue: { kind: 'literal', value: lowered } };
   }
 
   if (typeof value === 'object') {
@@ -791,7 +806,18 @@ export function lowerDefaultForField(input: {
     return { executionDefaults: { onCreate: lowered.value.generated } };
   }
 
-  return { defaultValue: { kind: 'literal', value } };
+  return { defaultValue: { kind: 'literal', value: literalDefaultValue(form, value, argument) } };
+}
+
+function literalDefaultValue(
+  form: LiteralDefaultForm | undefined,
+  parsed: string | number | boolean,
+  expression: ExpressionAst | undefined,
+): ColumnDefaultLiteralValue {
+  if (form === 'bigint' && typeof parsed === 'number') {
+    return bigintLiteralFromToken(expression, parsed);
+  }
+  return parsed;
 }
 
 export function resolveColumnDescriptor(
