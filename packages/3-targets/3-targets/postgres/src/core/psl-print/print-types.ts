@@ -72,10 +72,17 @@ export function printColumnType(
     );
   }
   const args: string[] = [];
+  const unconsumed = new Set(Object.keys(column.typeParams ?? {}));
   for (const param of spelling.params) {
     const value = column.typeParams?.[param];
     if (value === undefined) break;
     args.push(String(value));
+    unconsumed.delete(param);
+  }
+  if (unconsumed.size > 0) {
+    throw new InternalError(
+      `${label}: type params ${[...unconsumed].map((key) => `"${key}"`).join(', ')} of codec "${column.codecId}" have no place in the "${spelling.name}" constructor`,
+    );
   }
   if (args.length === 0) return { typeName: spelling.name };
   return {
