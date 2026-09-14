@@ -3,7 +3,7 @@
 **Spec:** `projects/prisma7-contract-source/slices/03-contract-to-psl-and-convert/spec.md`
 **Branch:** `prisma7-contract-convert`, stacked on `prisma7-contract-source` (PR https://github.com/prisma/orm/pull/30287); the PR targets that branch until 30287 merges, then `main`.
 
-Four dispatches, sequential, test-first. Dispatch 1 proves by hand that every construct the Prisma 7 source produces has a Prisma 8 spelling before any printer code exists; its hand-written file is the shape the printer must reach. Briefs are numbered files under `dispatches/`.
+Five dispatches (1, 1b, 2, 3, 4), sequential, test-first. Dispatch 1 proves by hand that every construct the Prisma 7 source produces has a Prisma 8 spelling before any printer code exists; its hand-written file is the shape the printer must reach. Briefs are numbered files under `dispatches/`.
 
 Calibration threaded into every brief: `drive/calibration/failure-modes.md` F3, F13, F14, F16, F24, F28; `drive/calibration/grep-library.md` cross-cutting anti-patterns; operator rules in `projects/prisma7-contract-source/HANDOVER.md` § Will's rules.
 
@@ -14,6 +14,15 @@ Calibration threaded into every brief: `drive/calibration/failure-modes.md` F3, 
 - **Hands to:** the exact spelling of every construct (the printing-rules table, confirmed or corrected), and the round-trip assertion helper the later dispatches reuse.
 - **Focus:** one integration test beside `supported.integration.test.ts`; the fixture at `test/integration/test/fixtures/prisma7-source/supported-verify/contract.prisma` with a README line. Risk areas to settle first: named and self-referential implicit many-to-many pairing through the junction (`Favorites`, `Follows`), enum handle and `@@map`, `temporal.timestamptz(6, onCreate: now, onUpdate: now)`.
 - **Halt:** any construct with no spelling. Report it as a feature to build; do not touch the PSL interpreter's checks.
+
+### Dispatch 1b: PSL interpreter features the round trip needs
+
+_Added 2026-09-14 after dispatch 1 halted on three constructs with no Prisma 8 spelling and one domain-plane difference._
+
+- **Outcome:** The Prisma 8 PSL interpreter treats a column-list unique index as making a back-relation one-to-one, keeps `BigInt` literal defaults exact, reads string literal defaults on JSON columns as JSON text, and keeps `typeParams` on scalar list fields; the hand-written file from dispatch 1 round-trips with no substitutions.
+- **Builds on:** dispatch 1.
+- **Hands to:** dispatch 2's target spelling, now complete.
+- **Focus:** `packages/2-sql/2-authoring/contract-psl`, test-first per feature.
 
 ### Dispatch 2: the Postgres contract-to-PSL printer
 
