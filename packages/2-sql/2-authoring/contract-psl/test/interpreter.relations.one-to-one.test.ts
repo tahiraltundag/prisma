@@ -264,6 +264,30 @@ model Profiles {
     expect(models['Users']?.relations?.['profiles']).toMatchObject({ cardinality: '1:1' });
   });
 
+  it('rejects a singular back-relation when the only unique index over the FK is partial', () => {
+    const document = symbolTableInputFromParseArgs({
+      schema: `model User {
+  id      Int @id
+  profile Profile?
+}
+
+model Profile {
+  id     Int @id
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  @@index([userId], unique: true, where: "id > 0", name: "profile_user_active")
+}
+`,
+      sourceId: 'schema.prisma',
+    });
+
+    const result = interpretPslDocumentToSqlContract({ ...baseInput, ...document });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failure.diagnostics.map((d) => d.code)).toEqual(['PSL_NON_UNIQUE_BACKRELATION']);
+  });
+
   it('rejects a singular back-relation when the only unique index over the FK is an expression index', () => {
     const document = symbolTableInputFromParseArgs({
       schema: `model User {

@@ -54,7 +54,7 @@ Unsupported PSL constructs in v1 (strict errors):
   - Example: `User.posts Post[]` + `Post.user User @relation(fields: [userId], references: [id])`
   - Matching may use `@relation("Name")` or `@relation(name: "Name")` when multiple candidates exist
   - Navigation list fields accept only `@relation` (name-only form); other field attributes are strict errors
-- **A singular back-relation is one-to-one** when the FK columns equal the owning model's `@id`, a `@unique`/`@@unique` constraint, or a unique `@@index` over the same columns (any order; an expression index does not count); otherwise `PSL_NON_UNIQUE_BACKRELATION`
+- **A singular back-relation is one-to-one** when the FK columns equal the owning model's `@id`, a `@unique`/`@@unique` constraint, or a unique `@@index` over the same columns (any order; an expression index or a partial index with `where:` does not count); otherwise `PSL_NON_UNIQUE_BACKRELATION`
 - **Implicit Prisma ORM many-to-many remains unsupported** (list navigation on both sides without explicit join model)
   - Represent many-to-many with an explicit join model (two foreign keys)
 

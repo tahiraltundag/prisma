@@ -2521,7 +2521,8 @@ export function interpretPslDocumentToSqlContract(
       uniqueColumnSets.push(unique.columns);
     }
     for (const index of modelNode.indexes ?? []) {
-      if (index.unique === true && index.columns !== undefined) {
+      // A partial unique index constrains only the rows its predicate selects.
+      if (index.unique === true && index.columns !== undefined && index.where === undefined) {
         uniqueColumnSets.push(index.columns);
       }
     }
