@@ -112,6 +112,8 @@ Recorded so they are not lost; each becomes its own project when scheduled.
 
 Found by the adoption example (slice 4). Each is outside this project's scope and needs an owner.
 
+- **Infer and verify should ignore `_prisma_migrations`.** The public guide has users delete the inferred `PrismaMigrations` model by hand, and strict verify flags the ledger as foreign. Briefed as an orphan slice in `handoffs/ignore-foreign-ledger-tables.md`: an ignore list supplied by the Postgres facade and passed into both evaluators.
+
 - **Wrong CLI through peer resolution.** `@prisma/client@7.10.0` declares a peer dependency on `prisma`; with pnpm auto-installing peers and no explicit Prisma 8 `prisma` dev dependency, `prisma` resolves to Prisma 7 and `prisma contract emit` runs the wrong CLI. The guide should tell users to keep an explicit Prisma 8 `prisma` dev dependency; the example README does.
 - **Provenance policy refuses `prisma@7.10.0`.** Earlier releases had provenance and 7.10.0 does not, so a `trustPolicy: no-downgrade` workspace needs an exact-version exemption. Worth raising with the Prisma 7 release process.
 - **The guide's `prisma7.config.ts` snippet** (`url: process.env["DATABASE_URL"]`) does not type-check under `exactOptionalPropertyTypes`. Docs fix for prisma/web.
