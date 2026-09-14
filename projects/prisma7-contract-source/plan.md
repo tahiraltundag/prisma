@@ -21,7 +21,7 @@ One stack of three slices. Slice 1 lands the parser additions, the config change
    - **Outcome:** A Mongo project configured with `prisma7Schema(...)` emits and signs against collections shaped by Prisma 7.
    - **Builds on:** slice 1's parser grammar and factory shape.
    - **Hands to:** the Mongo fixture corpus for slice 3's round trip.
-   - **Focus:** new `packages/2-mongo-family/2-authoring/contract-prisma7`, `packages/3-extensions/mongo/src/config/define-config.ts`. Verification item 5 first.
+   - **Focus:** new `packages/2-mongo-family/2-authoring/contract-prisma7`, `packages/3-extensions/mongo/src/config/define-config.ts`. Verification item 5 first. Also the Mongo contract-to-PSL printer hook (moved here from slice 3 on 2026-09-14: it needs the Mongo source and fixtures).
 
 3. **Slice `03-contract-to-psl-and-convert`** — Linear: TML-____
    - **Outcome:** `prisma contract convert` writes a Prisma 8 `contract.prisma` whose contract hashes equal the Prisma 7 source's, for every fixture of both families.
