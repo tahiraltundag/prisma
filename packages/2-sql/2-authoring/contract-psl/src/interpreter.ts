@@ -1659,13 +1659,6 @@ function patchModelDomainFields(
           type: { kind: 'valueObject', name: rf.valueObjectTypeName },
           ...(rf.many ? { many: true as const } : {}),
         };
-      } else if (rf.many && rf.scalarCodecId) {
-        needsPatch = true;
-        patchedFields[rf.field.name] = {
-          nullable: rf.field.optional,
-          type: { kind: 'scalar', codecId: rf.scalarCodecId },
-          many: true as const,
-        };
       }
     }
 
