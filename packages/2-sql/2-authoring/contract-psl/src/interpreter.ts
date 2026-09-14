@@ -2527,6 +2527,11 @@ export function interpretPslDocumentToSqlContract(
     for (const unique of modelNode.uniques ?? []) {
       uniqueColumnSets.push(unique.columns);
     }
+    for (const index of modelNode.indexes ?? []) {
+      if (index.unique === true && index.columns !== undefined) {
+        uniqueColumnSets.push(index.columns);
+      }
+    }
     modelUniqueColumnSets.set(modelNode.modelName, uniqueColumnSets);
   }
   applyBackrelationCandidates({
