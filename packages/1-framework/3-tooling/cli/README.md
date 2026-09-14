@@ -502,6 +502,51 @@ The SQL family provides this via `@internal/family-sql/control`. The `introspect
 
 **Note:** The introspection output displays native database types (e.g., `int4`, `text`, `timestamptz`) rather than mapped codec IDs (e.g., `pg/int4@1`). This reflects the actual database state, which may be enriched with type mappings later.
 
+### `prisma contract convert`
+
+Print the Prisma 7 schema the config points at as a Prisma 8 `contract.prisma`. This is the cutover step of the Prisma 7 to 8 upgrade: during the side-by-side period the config reads the Prisma 7 schema directly (`contract: prisma7Schema('prisma/schema.prisma')`), and `contract convert` writes the same contract in Prisma 8 PSL so the project can drop the Prisma 7 file. Offline; the database is not consulted.
+
+**Command:**
+```bash
+prisma contract convert [--config <path>] [--output <path>] [--json] [-v] [-q] [--color/--no-color]
+```
+
+Options:
+- `--config <path>`: Optional. Path to `prisma.config.ts` (defaults to `./prisma.config.ts` if present)
+- `--output <path>`: Write the converted PSL contract to the specified path
+- `--json`: Output a JSON result envelope (includes `psl.path` and `source.input`)
+- `-q, --quiet`, `-v, --verbose`, `-vv, --trace`, `--color/--no-color`: as for `contract infer`
+
+Examples:
+```bash
+# Write contract.prisma next to the configured contract.json output
+prisma contract convert
+
+# Override the output path
+prisma contract convert --output ./src/prisma/contract.prisma
+
+# JSON output
+prisma contract convert --json
+```
+
+The output path is resolved as for `contract infer`: `--output`, else `contract.prisma` beside `config.contract.output`, else `contract.prisma` in the current directory. An existing file is overwritten, with a warning. The file opens with `// use prisma-8` and a comment naming the schema it was converted from.
+
+The converted contract is the contract the Prisma 7 source produced, spelled in Prisma 8 PSL: interpreting the file yields the same storage, execution, and profile hashes and the same domain plane, so a marker signed from the Prisma 7 source stays valid. Two things are spelled the way the interpreter needs rather than the way the Prisma 7 file did: every relation carries `index: false` (Prisma 7 created no foreign-key indexes) and native enum members are named after their database values (member identifiers do not reach the contract, so `USER @map("user")` comes back as `user = "user"`).
+
+The command refuses a config whose contract source is not `prisma7Schema(...)` (`CONTRACT.CONVERT_REQUIRES_PRISMA7_SOURCE`) and a target without the print capability (`CONTRACT.CONVERT_UNSUPPORTED`); nothing is written in either case. Source diagnostics print as they do for `contract emit`.
+
+**Cutover, in the order of the upgrade guide** (phase 4, "Transfer migration ownership", and phase 5, "Remove Prisma ORM 7", of [Upgrade Prisma ORM 7 to 8 on PostgreSQL](https://www.prisma.io/docs/guides/upgrade-prisma-orm/postgresql)):
+
+```bash
+prisma contract convert --output src/prisma/contract.prisma   # write the Prisma 8 contract
+# point contract: in prisma.config.ts at src/prisma/contract.prisma
+prisma contract emit                                          # same hashes as before
+prisma migration plan --name baseline                         # Prisma 8 takes over migrations
+prisma db sign
+prisma migration ref set db <timestamp>_baseline
+# then remove @prisma/prisma7 and its client, prisma7.config.ts, and the Prisma 7 schema and generated client
+```
+
 ### `prisma db sign`
 
 Mark the database as matching the emitted contract by writing or updating the contract marker. This command verifies that the database schema satisfies the contract before signing, ensuring the marker is only written when the database is fully aligned.
