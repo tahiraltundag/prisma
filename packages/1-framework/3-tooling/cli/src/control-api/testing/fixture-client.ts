@@ -63,6 +63,7 @@ export interface ControlClientFixtures {
   readonly introspect: unknown;
   readonly toSchemaView: CoreSchemaView | undefined;
   readonly inferPslContract: PslDocumentAst | undefined;
+  readonly printPslContract: PslDocumentAst | undefined;
   readonly getPslBlockDescriptors: AuthoringPslBlockDescriptorNamespace;
   readonly toOperationPreview: OperationPreview | undefined;
   readonly emit: EmitResult;
@@ -203,6 +204,7 @@ export function defaultControlClientFixtures(): ControlClientFixtures {
     introspect: {},
     toSchemaView: undefined,
     inferPslContract: undefined,
+    printPslContract: undefined,
     getPslBlockDescriptors: {},
     toOperationPreview: undefined,
     emit: ok({
@@ -325,6 +327,10 @@ class FixtureControlClientImpl implements FixtureControlClient {
 
   inferPslContract(schemaIR: unknown): PslDocumentAst | undefined {
     return this.record('inferPslContract', schemaIR, this.fixtures.inferPslContract);
+  }
+
+  printPslContract(contract: unknown): PslDocumentAst | undefined {
+    return this.record('printPslContract', contract, this.fixtures.printPslContract);
   }
 
   getPslBlockDescriptors(): AuthoringPslBlockDescriptorNamespace {

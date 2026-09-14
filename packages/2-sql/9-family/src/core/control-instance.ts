@@ -12,6 +12,7 @@ import type {
   OperationPreview,
   OperationPreviewCapable,
   PslContractInferCapable,
+  PslContractPrintCapable,
   SchemaDiffIssue,
   SchemaViewCapable,
   SignDatabaseResult,
@@ -211,6 +212,7 @@ export interface SqlControlFamilyInstance
   extends ControlFamilyInstance<'sql', SqlSchemaIRNode>,
     SchemaViewCapable<SqlSchemaIRNode>,
     PslContractInferCapable<SqlSchemaIRNode>,
+    PslContractPrintCapable<Contract<SqlStorage>>,
     OperationPreviewCapable,
     SqlFamilyInstanceState {
   /**
@@ -280,6 +282,8 @@ export interface SqlControlFamilyInstance
   }): Promise<SqlSchemaIRNode>;
 
   inferPslContract(schemaIR: SqlSchemaIRNode): PslDocumentAst;
+
+  printPslContract(contract: Contract<SqlStorage>): PslDocumentAst;
 
   lowerAst(
     ast: AnyQueryAst | DdlNode,
@@ -582,6 +586,10 @@ export function createSqlFamilyInstance<TTargetId extends string>(
     SqlControlTargetDescriptor<TTargetId, unknown>,
     'reading the optional target-descriptor inferPslContract hook'
   >(target).inferPslContract;
+  const targetPrintPslContract = blindCast<
+    SqlControlTargetDescriptor<TTargetId, unknown>,
+    'reading the optional target-descriptor printPslContract hook'
+  >(target).printPslContract;
   // The full-tree node diff the verify VERDICT derives from. Read lazily so
   // construction-only stub descriptors (schema-view tests) keep working; the
   // throw happens at verify time.
@@ -1011,6 +1019,21 @@ export function createSqlFamilyInstance<TTargetId extends string>(
         );
       }
       return targetInferPslContract(schemaIR, describedContracts);
+    },
+
+    printPslContract(contract: Contract<SqlStorage>): PslDocumentAst {
+      if (!targetPrintPslContract) {
+        throw sqlFamilyError(
+          'CONTRACT.CONVERT_UNSUPPORTED',
+          `Target "${target.targetId}" does not support contract convert (no printPslContract on its descriptor).`,
+          {
+            why: 'The target descriptor does not provide the printPslContract hook, so the contract cannot be printed as PSL.',
+            fix: 'Use a target package that supports contract convert.',
+            meta: { targetId: target.targetId },
+          },
+        );
+      }
+      return targetPrintPslContract(contract);
     },
 
     lowerAst(
