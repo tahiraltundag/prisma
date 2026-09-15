@@ -105,14 +105,20 @@ function scalarValue(
     const values: ColumnDefaultLiteralInputValue[] = [];
     for (const element of array.elements()) {
       const value = elementValue(element, input);
-      if (value === undefined)
-        return unknown('lists may only hold literals or enum members.', span);
+      if (value === undefined) {
+        return unknown(
+          nonIntegerBigintReason(element, input) ?? 'lists may only hold literals or enum members.',
+          span,
+        );
+      }
       values.push(value);
     }
     return blindListValue(values);
   }
   const value = elementValue(expression, input);
   if (value !== undefined) return value;
+  const bigintReason = nonIntegerBigintReason(expression, input);
+  if (bigintReason !== undefined) return unknown(bigintReason, span);
   const identifier = IdentifierAst.cast(expression.syntax)?.name();
   if (identifier !== undefined) {
     return unknown(
@@ -160,6 +166,19 @@ function blindListValue(
   >(values);
 }
 
+const INTEGER_TEXT = /^-?\d+$/;
+
+/** The number token of an `int8` default that `BigInt()` would reject: Prisma 7 rejects it too ("is not a valid integer"). */
+function nonIntegerBigintReason(
+  expression: ExpressionAst,
+  input: LowerPrisma7DefaultInput,
+): string | undefined {
+  if (input.nativeType !== 'int8') return undefined;
+  const text = NumberLiteralExprAst.cast(expression.syntax)?.token()?.text;
+  if (text === undefined || INTEGER_TEXT.test(text)) return undefined;
+  return `holds ${text}, which is not an integer; a BigInt default must be a whole number.`;
+}
+
 function elementValue(
   expression: ExpressionAst,
   input: LowerPrisma7DefaultInput,
@@ -172,7 +191,7 @@ function elementValue(
     // number would round past 2^53.
     if (input.nativeType === 'int8') {
       const text = number.token()?.text;
-      return text === undefined
+      return text === undefined || !INTEGER_TEXT.test(text)
         ? undefined
         : blindCast<ColumnDefaultLiteralInputValue, 'the int8 codec encodes a bigint to JSON'>(
             BigInt(text),
