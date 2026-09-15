@@ -358,7 +358,7 @@ Options:
 - `--db <url>`: Database connection string (optional; defaults to `config.db.connection` if set)
 - `--config <path>`: Optional. Path to `prisma.config.ts` (defaults to `./prisma.config.ts` if present)
 - `--output <path>`: Write the inferred PSL contract to the specified path
-- `--json`: Output a JSON result envelope (includes `psl.path`)
+- `--json`: Output a JSON result envelope (includes `psl.path` and `psl.overwrote`, true when an existing file was replaced)
 - `-q, --quiet`: Quiet mode (errors only)
 - `-v, --verbose`: Verbose output (debug info, timings)
 - `-vv, --trace`: Trace output (deep internals, stack traces)
@@ -514,7 +514,7 @@ prisma contract convert [--config <path>] [--output <path>] [--json] [-v] [-q] [
 Options:
 - `--config <path>`: Optional. Path to `prisma.config.ts` (defaults to `./prisma.config.ts` if present)
 - `--output <path>`: Write the converted PSL contract to the specified path
-- `--json`: Output a JSON result envelope (includes `psl.path` and `source.input`)
+- `--json`: Output a JSON result envelope (includes `psl.path`, `psl.overwrote`, and `source.input`)
 - `-q, --quiet`, `-v, --verbose`, `-vv, --trace`, `--color/--no-color`: as for `contract infer`
 
 Examples:
