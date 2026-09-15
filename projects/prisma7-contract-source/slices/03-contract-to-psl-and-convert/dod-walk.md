@@ -1,6 +1,6 @@
 # Slice 3 Definition of Done walk — 2026-09-15
 
-Walked by the orchestrator against the slice spec's checklist and the team overlay in `drive/calibration/dod.md`. Reviewer verdict on the code: SATISFIED after five rounds across dispatches 1, 1b, 2, 3, 4 (findings S3-1 to S3-15, all closed). Tip at the walk: `316778d13d` plus the QA report.
+Walked by the orchestrator against the slice spec's checklist and the team overlay in `drive/calibration/dod.md`. Reviewer verdict on the code: SATISFIED after five rounds across dispatches 1, 1b, 2, 3, 4 (findings S3-1 to S3-15, all closed). Tip at the walk: the dispatch 5 tip (see `git log`), after the QA re-run.
 
 ## Slice-specific items (slice spec)
 
@@ -22,7 +22,7 @@ Walked by the orchestrator against the slice spec's checklist and the team overl
 
 ## Team overlay, QA-side
 
-- ⏳ README-only QA run of `prisma contract convert` per `projects/prisma7-contract-source/manual-qa-slice-03.md`; report at `manual-qa-reports/2026-09-15-qa-runner-convert.md`. Result recorded below when the run completes.
+- ✓ README-only QA run of `prisma contract convert` per `manual-qa-slice-03.md`; report `manual-qa-reports/2026-09-15-qa-runner-convert.md`: no blockers, three should-fix findings and six notes, all fixed with regression tests or documented in dispatch 5, re-run section green.
 
 ## Dispatch DoD overlay
 
