@@ -174,7 +174,7 @@ describe('contract convert', () => {
       summary: 'Contract converted successfully',
       target: { familyId: 'sql', id: 'postgres' },
       source: { format: 'prisma7', input: 'schema.prisma' },
-      psl: { path: 'generated/contract.prisma' },
+      psl: { path: 'generated/contract.prisma', overwrote: false },
       timings: { total: expect.any(Number) },
     });
     expect(await readFile(join(dir, 'generated', 'contract.prisma'), 'utf-8')).toBe(PSL);
@@ -216,14 +216,17 @@ describe('contract convert', () => {
 
     const run = await harness(ormConfig(dir)).run(
       ['contract', 'convert', '--output', 'contract.prisma'],
-      { cwd: dir },
+      { cwd: dir, isTty: { stdout: true } },
     );
 
     expect(run.exitCode).toBe(0);
-    expect(run.events).toContainEqual({
-      kind: 'message',
-      severity: 'warn',
-      text: 'Overwriting existing file: contract.prisma',
+    expect(run.presented?.data).toMatchObject({
+      psl: { path: 'contract.prisma', overwrote: true },
+    });
+    expect(run.presented?.presentation.human).toContainEqual({
+      kind: 'summary',
+      status: 'warn',
+      text: [{ text: 'Overwrote existing file ' }, { text: 'contract.prisma', tone: 'identifier' }],
     });
     expect(await readFile(join(dir, 'contract.prisma'), 'utf-8')).toBe(PSL);
   });

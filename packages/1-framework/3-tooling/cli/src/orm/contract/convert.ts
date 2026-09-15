@@ -23,7 +23,7 @@ interface ConvertDocument {
   readonly summary: string;
   readonly target: { readonly familyId: string; readonly id: string };
   readonly source: { readonly format: string; readonly input: string | undefined };
-  readonly psl: { readonly path: string };
+  readonly psl: { readonly path: string; readonly overwrote: boolean };
   readonly timings: { readonly total: number };
 }
 
@@ -41,6 +41,18 @@ function convertPresentations(document: ConvertDocument): Presentations {
               rows: [{ label: 'source', value: document.source.input }],
             },
           ]),
+      ...(document.psl.overwrote
+        ? [
+            {
+              kind: 'summary' as const,
+              status: 'warn' as const,
+              text: [
+                { text: 'Overwrote existing file ' },
+                { text: document.psl.path, tone: 'identifier' as const },
+              ],
+            },
+          ]
+        : []),
       {
         kind: 'summary',
         status: 'ok',
@@ -186,13 +198,7 @@ export function createContractConvertCommand({
         output: args.flags.output,
       });
       const displayPath = relative(ctx.cwd, outputPath);
-      if (existsSync(outputPath)) {
-        ctx.report({
-          kind: 'message',
-          severity: 'warn',
-          text: `Overwriting existing file: ${displayPath}`,
-        });
-      }
+      const overwrote = existsSync(outputPath);
       await publishTextArtifact({
         path: outputPath,
         content: pslContent,
@@ -204,7 +210,7 @@ export function createContractConvertCommand({
         summary: 'Contract converted successfully',
         target: { familyId: ctx.config.family.familyId, id: ctx.config.target.targetId },
         source: { format, input },
-        psl: { path: displayPath },
+        psl: { path: displayPath, overwrote },
         timings: { total: Date.now() - startedAt },
       };
       return ok(ctx.present({ data: document }, convertPresentations(document)));
