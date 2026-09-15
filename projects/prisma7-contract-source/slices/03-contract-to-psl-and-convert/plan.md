@@ -3,7 +3,7 @@
 **Spec:** `projects/prisma7-contract-source/slices/03-contract-to-psl-and-convert/spec.md`
 **Branch:** `prisma7-contract-convert`, stacked on `prisma7-contract-source` (PR https://github.com/prisma/orm/pull/30287); the PR targets that branch until 30287 merges, then `main`.
 
-Five dispatches (1, 1b, 2, 3, 4), sequential, test-first. Dispatch 1 proves by hand that every construct the Prisma 7 source produces has a Prisma 8 spelling before any printer code exists; its hand-written file is the shape the printer must reach. Briefs are numbered files under `dispatches/`.
+Six dispatches (1, 1b, 2, 3, 4, 5), sequential, test-first. Dispatch 1 proves by hand that every construct the Prisma 7 source produces has a Prisma 8 spelling before any printer code exists; its hand-written file is the shape the printer must reach. Briefs are numbered files under `dispatches/`.
 
 Calibration threaded into every brief: `drive/calibration/failure-modes.md` F3, F13, F14, F16, F24, F28; `drive/calibration/grep-library.md` cross-cutting anti-patterns; operator rules in `projects/prisma7-contract-source/HANDOVER.md` § Will's rules.
 
@@ -43,6 +43,15 @@ _Added 2026-09-14 after dispatch 1 halted on three constructs with no Prisma 8 s
 - **Outcome:** CLI README documents the command; the Prisma 7 source README and the Postgres extension README describe cutover in phase 4 terms; `examples/prisma7-adoption` runs `contract convert` and the phase 4 steps in its test and README; repo-wide gates green; PR open.
 - **Builds on:** dispatch 3.
 - **Hands to:** slice DoD; a README-only QA run.
+
+
+### Dispatch 5: manual QA fixes
+
+_Added 2026-09-15 after the README-only QA run (`manual-qa-reports/2026-09-15-qa-runner-convert.md`): no blockers; three should-fix findings in human output around the cutover, six notes._
+
+- **Outcome:** every QA finding fixed with a regression test or documented, with a re-run of the affected steps.
+- **Builds on:** dispatch 4.
+- **Hands to:** slice DoD; PR.
 
 ## Handoff completeness
 
