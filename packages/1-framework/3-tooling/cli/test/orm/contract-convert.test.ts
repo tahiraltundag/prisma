@@ -4,6 +4,7 @@ import type { ErroredEnvelope, MountedTree, StreamEvent } from '@prisma/cli-engi
 import { createTestCli } from '@prisma/cli-engine/testing';
 import { join } from 'pathe';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolveContractSource } from '../../src/control-api/operations/contract-emit';
 import { BIN_GROUPS } from '../../src/orm/cli';
 import { createContractConvertCommand } from '../../src/orm/contract/convert';
 import { createTestProjectDir } from '../utils/test-project-dir';
@@ -102,6 +103,64 @@ function erroredEnvelope(run: { readonly json: readonly StreamEvent[] }): Errore
 }
 
 describe('contract convert', () => {
+  it('names contract convert, not contract emit, in the next action when the source fails', async () => {
+    const dir = await projectDir();
+    const failing: MountedTree = {
+      'contract convert': createContractConvertCommand({
+        createControlClient: () => ({
+          printPslContract: mocks.printPslContract,
+          getPslBlockDescriptors: mocks.getPslBlockDescriptors,
+          close: mocks.close,
+        }),
+        resolveContractSource,
+        printPsl: mocks.printPsl,
+      }),
+    };
+    const config = ormConfig(dir, {
+      contract: {
+        source: {
+          format: 'prisma7',
+          inputs: ['./schema.prisma'],
+          load: async () => ({
+            ok: false,
+            failure: {
+              summary: 'Prisma 7 schema interpretation failed',
+              diagnostics: [
+                {
+                  code: 'PRISMA7_VIEW_UNSUPPORTED',
+                  message: 'View "ActiveUsers" is not supported',
+                  sourceId: './schema.prisma',
+                  span: {
+                    start: { offset: 0, line: 9, character: 1 },
+                    end: { offset: 0, line: 9, character: 1 },
+                  },
+                },
+              ],
+            },
+          }),
+        },
+        output: join(dir, 'generated', 'contract.json'),
+      },
+    });
+
+    const run = await createTestCli({ commands: failing, groups, config: { orm: config } }).run(
+      ['contract', 'convert', '--json'],
+      { cwd: dir },
+    );
+
+    expect(run.exitCode).not.toBe(0);
+    const envelope = erroredEnvelope(run);
+    expect(envelope.error.code).toBe('CONTRACT.SOURCE_LOAD_FAILED');
+    expect(envelope.nextActions).toEqual([
+      {
+        kind: 'user-choice',
+        label: 'Edit the schema where each finding points, then run contract convert again.',
+      },
+    ]);
+    expect(JSON.stringify(envelope)).not.toContain('contract emit again');
+    expect(existsSync(join(dir, 'generated'))).toBe(false);
+  });
+
   it('writes the printed PSL beside the emitted contract and reports the path', async () => {
     const dir = await projectDir();
 

@@ -141,7 +141,10 @@ function mapDiagnosticsToIssues(
   return issues;
 }
 
-function validateProviderResult(providerResult: unknown): ValidatedProviderResult {
+function validateProviderResult(
+  providerResult: unknown,
+  commandName: string,
+): ValidatedProviderResult {
   if (!isRecord(providerResult) || typeof providerResult['ok'] !== 'boolean') {
     return {
       ok: false,
@@ -183,7 +186,7 @@ function validateProviderResult(providerResult: unknown): ValidatedProviderResul
     ok: false,
     error: failedToResolveContractSource(
       String(failure['summary']),
-      'Edit the schema where each finding points, then run contract emit again.',
+      `Edit the schema where each finding points, then run ${commandName} again.`,
       {
         diagnostics: failure['diagnostics'],
         issues: mapDiagnosticsToIssues(failure['diagnostics']),
@@ -213,10 +216,12 @@ export interface ResolvedContractSource {
 export async function resolveContractSource(options: {
   readonly config: ContractEmitOptions['config'];
   readonly contractConfig: NonNullable<ContractEmitOptions['config']['contract']>;
+  /** The command the user ran, named in the next action when the source fails. */
+  readonly commandName: string;
   readonly signal: AbortSignal | undefined;
   readonly onProgress: OnControlProgress | undefined;
 }): Promise<ResolvedContractSource> {
-  const { config, contractConfig, onProgress } = options;
+  const { config, contractConfig, commandName, onProgress } = options;
   const signal = options.signal ?? new AbortController().signal;
   const unlessAborted = abortable(signal);
   const stack = createControlStack(config);
@@ -248,7 +253,7 @@ export async function resolveContractSource(options: {
     );
   }
 
-  const validatedContract = validateProviderResult(providerResult);
+  const validatedContract = validateProviderResult(providerResult, commandName);
   if (!validatedContract.ok) {
     endSpan(onProgress, 'resolveSource', 'error');
     throw validatedContract.error;
@@ -327,6 +332,7 @@ export async function executeContractEmit(
     const { stack, validatedContract } = await resolveContractSource({
       config,
       contractConfig,
+      commandName: 'contract emit',
       signal,
       onProgress,
     });

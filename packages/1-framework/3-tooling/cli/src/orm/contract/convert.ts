@@ -140,6 +140,7 @@ export function createContractConvertCommand({
         const { validatedContract } = await resolveContractSource({
           config: ctx.config,
           contractConfig,
+          commandName: 'contract convert',
           signal: ctx.signal,
           onProgress: controlProgressReporter(ctx.report),
         });
