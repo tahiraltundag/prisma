@@ -84,10 +84,19 @@ interface ComparableContract {
 /** The planes the cutover must preserve: the three hashes and the domain plane. */
 function comparablePlanes(contractJsonPath: string) {
   const contract = JSON.parse(readFileSync(contractJsonPath, 'utf-8')) as ComparableContract;
+  const requireHash = (value: unknown, name: string): string => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new Error(`${name} is missing from ${contractJsonPath}; nothing to compare`);
+    }
+    return value;
+  };
   return {
-    storageHash: contract.storage.storageHash,
-    executionHash: contract.execution?.executionHash ?? 'no execution section',
-    profileHash: contract.profileHash,
+    storageHash: requireHash(contract.storage?.storageHash, 'storageHash'),
+    executionHash:
+      contract.execution === undefined
+        ? 'no execution section'
+        : requireHash(contract.execution.executionHash, 'executionHash'),
+    profileHash: requireHash(contract.profileHash, 'profileHash'),
     domain: contract.domain,
   };
 }
