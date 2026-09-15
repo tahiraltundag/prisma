@@ -870,15 +870,18 @@ export function createSqlFamilyInstance<TTargetId extends string>(
       } else {
         const existingStorageHash = existingMarker.storageHash;
         const existingProfileHash = existingMarker.profileHash;
+        // The marker the signature found, whether or not it changes: the
+        // command shows it as `from`, and it names the same contract the ref
+        // advancement reports as the previous one.
+        previousHashes = {
+          storageHash: existingStorageHash,
+          profileHash: existingProfileHash,
+        };
 
         const storageHashMatches = existingStorageHash === contractStorageHash;
         const profileHashMatches = existingProfileHash === contractProfileHash;
 
         if (!storageHashMatches || !profileHashMatches) {
-          previousHashes = {
-            storageHash: existingStorageHash,
-            profileHash: existingProfileHash,
-          };
           const updated = await controlAdapter.updateMarker(
             driver,
             APP_SPACE_ID,

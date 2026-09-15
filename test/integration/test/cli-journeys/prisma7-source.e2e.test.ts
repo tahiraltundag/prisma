@@ -209,6 +209,24 @@ withTempDir(({ createTempDir }) => {
 
         const sign = await runDbSign(ctx, ['--json']);
         expect(sign.exitCode, `db sign\n${output(sign)}`).toBe(0);
+        expect(sign.presented?.data).toMatchObject({ marker: { created: true } });
+        expect(sign.presented?.data).not.toHaveProperty('marker.previous');
+
+        // Signing again reports the marker it found as the previous one, so
+        // `from` and the ref advancement's "was" name the same contract.
+        const signAgain = await runDbSign(ctx, ['--json']);
+        expect(signAgain.exitCode, `db sign (again)\n${output(signAgain)}`).toBe(0);
+        const signedAgain = signAgain.presented?.data as
+          | { contract: { storageHash: string } }
+          | undefined;
+        expect(signedAgain).toBeDefined();
+        expect(signAgain.presented?.data).toMatchObject({
+          marker: {
+            created: false,
+            updated: false,
+            previous: { storageHash: signedAgain?.contract.storageHash },
+          },
+        });
 
         const verify = await runDbVerify(ctx, ['--json']);
         expect(verify.exitCode, `db verify\n${output(verify)}`).toBe(0);
