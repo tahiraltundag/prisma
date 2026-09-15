@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'pathe';
 import { describe, expect, it } from 'vitest';
 
@@ -12,7 +13,7 @@ describe('implicit many-to-many junction sides', () => {
   const contract: unknown = JSON.parse(
     readFileSync(
       join(
-        dirname(new URL(import.meta.url).pathname),
+        dirname(fileURLToPath(import.meta.url)),
         'fixtures/implicit-many-to-many/expected-contract.json',
       ),
       'utf8',

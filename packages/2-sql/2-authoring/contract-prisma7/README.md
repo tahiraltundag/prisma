@@ -4,7 +4,7 @@ Reads a Prisma 7 `schema.prisma` as a Prisma 8 contract source for the SQL famil
 
 ## Responsibilities
 
-- `prisma7Schema(path, options)` returns a `ContractConfig` (format `prisma7`) whose `source.load` reads the input, parses every `.prisma` file with `@internal/psl-parser`, and runs the Prisma 7 interpreter. A file input reads that file; a directory input reads every `.prisma` file directly under it, sorted by name (not recursive). The default `output` is `contract.json` in the directory that holds the file or the directory, never inside the directory and never named after the file; `options.output` overrides it.
+- `prisma7Schema(path, options)` returns a `ContractConfig` (format `prisma7`) whose `source.load` reads the input, parses every `.prisma` file with `@internal/psl-parser`, and runs the Prisma 7 interpreter. A file input reads that file; a directory input reads every `.prisma` file under it, nested directories included, sorted by path, as Prisma 7 reads a schema directory. The default `output` is `contract.json` in the directory that holds the file or the directory, never inside the directory and never named after the file; `options.output` overrides it.
 - The interpreter turns the Prisma 7 dialect into a validated SQL contract using the same lowering helpers as `@internal/sql-contract-psl`: models, columns, native types, namespaces (`@@schema`), and native enums. Every construct it does not support is a diagnostic with a span; nothing is changed silently.
 - `src/native-types.ts` holds only the mapping mechanism. The table of what Prisma 7 creates for each scalar and `@db.*` type is target knowledge: the Postgres one is `prisma7PostgresTypeMap` in `@internal/target-postgres/prisma7-type-map`, derived from what `prisma@7.10.0` creates for the reference schema in `test/integration/test/fixtures/prisma7-source/reference/`, and the facade passes it in as `typeMap`.
 
@@ -35,7 +35,7 @@ The package itself is target-neutral: the Postgres facade supplies the target pa
 | `@default(...)` | Column defaults through the target's default function registry, literals, list literals, enum members; `uuid`, `ulid`, `nanoid`, `cuid` are execution generators (`cuid` maps to `cuid2`). |
 | `@updatedAt` | The "now" generator the target picks for the column's codec (Postgres: `plainDateTimeNow` for `timestamp`, `instantNow` for `@db.Timestamptz`) on create and update, no column default. |
 | `@id`, `@@id` | Primary key. |
-| `@unique`, `@@unique`, `@@index` | Indexes named `{table}_{columns}_key` and `{table}_{columns}_idx`, `map` overriding, `type` mapped. |
+| `@unique`, `@@unique`, `@@index` | Indexes named `{table}_{columns}_key` and `{table}_{columns}_idx` cut to 63 bytes as Prisma 7 cuts them, `map` overriding, `type` mapped. |
 | Explicit relations | Foreign keys with `onDelete` `restrict` (required) or `setNull` (optional) and `onUpdate` `cascade` unless given; paired through `@internal/sql-contract-psl/resolution`. |
 | Implicit many-to-many | Junction `_AToB` or `_Name`: columns `A` and `B`, primary key `(A, B)`, index `_AToB_B_index`, cascading foreign keys. |
 | `@ignore`, `@@ignore` | Omitted, together with relations over them. |
@@ -57,7 +57,7 @@ Codes are prefixed `PRISMA7_`:
 | `PRISMA7_JUNCTION_ID_UNSUPPORTED` | An implicit many-to-many relation on a model without a single-field `@id` (a composite id, for example). Prisma 7 forbids it too. |
 | `PRISMA7_UNKNOWN_ATTRIBUTE` | An attribute Prisma 7 for Postgres does not have, or one this source does not read (`@@fulltext`, `@shardKey`, ...). |
 | `PRISMA7_TABLE_COLLISION` | Two models map to the same table in the same schema; reported on every model in the group. |
-| `PRISMA7_UNKNOWN_DEFAULT` | A `@default` value this source cannot read: an unknown function, an enum member on a non-enum field, a non-member, or a malformed JSON or base64 literal. |
+| `PRISMA7_UNKNOWN_DEFAULT` | A `@default` value this source cannot read: an unknown function, an enum member on a non-enum field, a non-member, a non-integer `BigInt` literal, or a malformed JSON or base64 literal. |
 | `PRISMA7_OPTIONAL_GENERATED_FIELD_UNSUPPORTED` | An ORM-side generator or `@updatedAt` on an optional field. |
 | `PRISMA7_UPDATED_AT_WITH_DEFAULT_UNSUPPORTED` | `@updatedAt` combined with `@default`. |
 | `PRISMA7_INDEX_ARGUMENT_UNSUPPORTED` | An index argument Prisma 8 cannot carry (`sort`, `length`, `ops`, an unknown type) or a field that is not a column. |
@@ -73,11 +73,11 @@ Explicit relations keep their fields, references, and actions; an omitted `onDel
 
 ## Defaults, generators, `@updatedAt`, and indexes
 
-`@default(autoincrement())` and `@default(now())` become column defaults through the target's default function registry (`context.controlMutationDefaults`), as do `dbgenerated("expr")` (a raw expression) and the ORM-side generators `uuid()`, `uuid(4)`, `uuid(7)`, `ulid()`, `nanoid()`, `nanoid(n)`, `cuid()`, and `cuid(2)`, which become execution generators on create with no column default; `cuid()` maps to `cuid2` by decision. Literals of every scalar, list literals, and enum members (the member's mapped storage value) become literal defaults; `BigInt` literals keep their exact text, `Json` literals are parsed, and `Bytes` and `DateTime` literals are carried as the SQL literal Prisma 7 writes. `@updatedAt` becomes an ORM-side "now" generator on create and update with no column default; the target picks the generator from the column's codec (`updatedAt.generatorIdFor`), so a zoneless `timestamp(3)` column receives a UTC `Temporal.PlainDateTime` and a `@db.Timestamptz` column a `Temporal.Instant`. List columns decline the element-not-null check Prisma 8 would otherwise derive, because Prisma 7 creates none.
+`@default(autoincrement())` and `@default(now())` become column defaults through the target's default function registry (`context.controlMutationDefaults`), as do `dbgenerated("expr")` (a raw expression) and the ORM-side generators `uuid()`, `uuid(4)`, `uuid(7)`, `ulid()`, `nanoid()`, `nanoid(n)`, `cuid()`, and `cuid(2)`, which become execution generators on create with no column default; `cuid()` maps to `cuid2` by decision. Literals of every scalar, list literals, and enum members (the member's mapped storage value) become literal defaults; `BigInt` literals keep their exact text (a non-integer such as `1.5` is `PRISMA7_UNKNOWN_DEFAULT`, as Prisma 7 rejects it), `Json` literals are parsed, and `Bytes` and `DateTime` literals are carried as the SQL literal Prisma 7 writes. `@updatedAt` becomes an ORM-side "now" generator on create and update with no column default; the target picks the generator from the column's codec (`updatedAt.generatorIdFor`), so a zoneless `timestamp(3)` column receives a UTC `Temporal.PlainDateTime` and a `@db.Timestamptz` column a `Temporal.Instant`. List columns decline the element-not-null check Prisma 8 would otherwise derive, because Prisma 7 creates none.
 
 By decision (option (a)), a generator or `@updatedAt` on an optional field is `PRISMA7_OPTIONAL_GENERATED_FIELD_UNSUPPORTED` and `@updatedAt` combined with `@default` is `PRISMA7_UPDATED_AT_WITH_DEFAULT_UNSUPPORTED`; Prisma 8 cannot spell either yet.
 
-`@unique` and `@@unique` become unique indexes named `{table}_{columns}_key` and `@@index` becomes an index named `{table}_{columns}_idx`, `map` overriding either (`name` on `@@unique` is the client-side name and is ignored). `type: Hash` and the other Prisma 8 index types map through; field arguments such as `sort` and `length`, and `ops`, are `PRISMA7_INDEX_ARGUMENT_UNSUPPORTED` because Prisma 8 indexes carry none.
+`@unique` and `@@unique` become unique indexes named `{table}_{columns}_key` and `@@index` becomes an index named `{table}_{columns}_idx`, `map` overriding either (`name` on `@@unique` is the client-side name and is ignored). A generated name is cut the way Prisma 7 cuts it to fit PostgreSQL's 63-byte identifier limit: the `{table}_{columns}` part is shortened to 63 bytes minus the suffix, on a character boundary, and the suffix stays whole (`AVeryLongModelNameThatKeepsGoingAndGoingForever_aVeryLongCo_idx`). The same rule cuts an implicit junction's table name (no suffix) and its `_B_index`. `db verify` compares indexes by name, so the contract must carry the name Prisma 7 created. `type: Hash` and the other Prisma 8 index types map through; field arguments such as `sort` and `length`, and `ops`, are `PRISMA7_INDEX_ARGUMENT_UNSUPPORTED` because Prisma 8 indexes carry none.
 
 ## Cutover
 
@@ -85,7 +85,7 @@ This source is for the side-by-side period, while Prisma 7 owns the database. Wh
 
 ## Multi-file input
 
-A directory input is read file by file in sorted name order; the datasource check runs once over all of them. A model or enum declared in more than one file is `PSL_DUPLICATE_DECLARATION` on the later file, the same code the parser's symbol table uses for a duplicate within one file.
+A directory input is read file by file in sorted path order, nested directories included, and a diagnostic names a nested file by its path under the directory (`prisma/schema/models/user.prisma`); the datasource check runs once over all of them. A model or enum declared in more than one file is `PSL_DUPLICATE_DECLARATION` on the later file, the same code the parser's symbol table uses for a duplicate within one file.
 
 ## Tests
 

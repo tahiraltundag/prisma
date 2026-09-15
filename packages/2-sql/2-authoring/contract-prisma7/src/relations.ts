@@ -23,6 +23,7 @@ import type {
   RelationNode,
 } from '@internal/sql-contract-ts/contract-builder';
 import { prisma7Diagnostic } from './diagnostics';
+import { prisma7ConstraintName } from './indexes';
 
 export interface RelationAttribute {
   readonly name: string | undefined;
@@ -424,18 +425,30 @@ export function lowerRelations(
     modelIdColumns.set(junction.modelName, ['A', 'B']);
     modelUniqueColumnSets.set(junction.modelName, [['A', 'B']]);
   }
+  // The shared helper reports every diagnostic against one sourceId, so the
+  // candidates are paired one declaring file at a time: a diagnostic then
+  // names the file that declares the relation field it is about.
   const pairingDiagnostics: ContractSourceDiagnostic[] = [];
-  applyBackrelationCandidates({
-    backrelationCandidates: candidates,
-    fkRelationsByPair,
-    invalidFkPairings,
-    fkRelationsByDeclaringModel,
-    modelIdColumns,
-    modelUniqueColumnSets,
-    modelRelations,
-    diagnostics: pairingDiagnostics,
-    sourceId: models.values().next().value?.sourceId ?? 'schema.prisma',
-  });
+  const candidatesBySourceId = new Map<string, ModelBackrelationCandidate[]>();
+  for (const candidate of candidates) {
+    const sourceId = models.get(candidate.modelName)?.sourceId ?? 'schema.prisma';
+    const group = candidatesBySourceId.get(sourceId) ?? [];
+    candidatesBySourceId.set(sourceId, group);
+    group.push(candidate);
+  }
+  for (const [sourceId, backrelationCandidates] of candidatesBySourceId) {
+    applyBackrelationCandidates({
+      backrelationCandidates,
+      fkRelationsByPair,
+      invalidFkPairings,
+      fkRelationsByDeclaringModel,
+      modelIdColumns,
+      modelUniqueColumnSets,
+      modelRelations,
+      diagnostics: pairingDiagnostics,
+      sourceId,
+    });
+  }
   for (const diagnostic of pairingDiagnostics) {
     diagnostics.push(
       diagnostic.code.startsWith('PSL_') && diagnostic.code.endsWith('_BACKRELATION')
@@ -462,9 +475,14 @@ interface SynthesizedJunction {
   readonly candidateRelationName: string;
 }
 
+/**
+ * The id column a junction side contributes. The diagnostic names the
+ * requesting relation field, so it is located at that field, whichever side's
+ * id is at fault.
+ */
 function singleIdColumn(
   side: JunctionSide,
-  label: string,
+  requester: JunctionSide,
   diagnostics: ContractSourceDiagnostic[],
 ): FieldNode | undefined {
   const [idField, ...rest] = side.model.idFields;
@@ -473,9 +491,9 @@ function singleIdColumn(
     diagnostics.push(
       prisma7Diagnostic(
         'PRISMA7_JUNCTION_ID_UNSUPPORTED',
-        `${label} is an implicit many-to-many relation, but "${side.model.modelName}" ${column === undefined ? 'has no single-field @id' : 'has a composite id'}; Prisma 7 requires a single-field @id on both models of an implicit many-to-many relation.`,
-        side.model.sourceId,
-        side.field.field.span,
+        `Relation field "${requester.model.modelName}.${requester.field.field.name}" is an implicit many-to-many relation, but "${side.model.modelName}" ${column === undefined ? 'has no single-field @id' : 'has a composite id'}; Prisma 7 requires a single-field @id on both models of an implicit many-to-many relation.`,
+        requester.model.sourceId,
+        requester.field.field.span,
       ),
     );
     return undefined;
@@ -497,7 +515,6 @@ function synthesizeJunction(
   partner: JunctionSide,
   diagnostics: ContractSourceDiagnostic[],
 ): SynthesizedJunction | undefined {
-  const label = `Relation field "${requester.model.modelName}.${requester.field.field.name}"`;
   const selfRelation = requester.model === partner.model;
   const requesterFirst = selfRelation
     ? requester.field.field.name < partner.field.field.name
@@ -505,11 +522,11 @@ function synthesizeJunction(
   const [sideA, sideB] = requesterFirst ? [requester, partner] : [partner, requester];
   const name =
     requester.field.attribute?.name ?? `${sideA.model.modelName}To${sideB.model.modelName}`;
-  const idA = singleIdColumn(sideA, label, diagnostics);
-  const idB = singleIdColumn(sideB, label, diagnostics);
+  const idA = singleIdColumn(sideA, requester, diagnostics);
+  const idB = singleIdColumn(sideB, requester, diagnostics);
   if (idA === undefined || idB === undefined) return undefined;
 
-  const tableName = `_${name}`;
+  const tableName = prisma7ConstraintName(`_${name}`, '');
   const namespaceId = sideA.model.namespaceId;
   const foreignKey = (column: 'A' | 'B', side: JunctionSide, id: FieldNode): ForeignKeyNode => ({
     columns: [column],
@@ -542,7 +559,7 @@ function synthesizeJunction(
     options: undefined,
     where: undefined,
     unique: undefined,
-    map: `${tableName}_B_index`,
+    map: prisma7ConstraintName(`_${name}`, '_B_index'),
     name: undefined,
   };
   return {

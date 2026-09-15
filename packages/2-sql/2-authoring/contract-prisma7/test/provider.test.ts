@@ -34,7 +34,7 @@ describe('prisma7Schema', () => {
     ).toBe('out/c.json');
   });
 
-  it('reads every .prisma file directly under a directory input, sorted by name', async () => {
+  it('reads every .prisma file under a directory input, nested directories included, sorted by path', async () => {
     const dir = scratchDir('directory');
     writeFileSync(
       join(dir, 'b-models.prisma'),
@@ -45,14 +45,38 @@ describe('prisma7Schema', () => {
       'datasource db {\n  provider = "postgresql"\n}\n',
     );
     writeFileSync(join(dir, 'notes.txt'), 'model Ignored {\n  id Int\n}\n');
-    mkdirSync(join(dir, 'nested'));
+    mkdirSync(join(dir, 'nested', 'deep'), { recursive: true });
     writeFileSync(join(dir, 'nested', 'c.prisma'), 'model Nested {\n  id Int\n}\n');
+    writeFileSync(join(dir, 'nested', 'deep', 'd.prisma'), 'model Deep {\n  id Int\n}\n');
+    writeFileSync(join(dir, 'nested', 'deep', 'readme.md'), 'model NotPrisma {\n  id Int\n}\n');
 
     const config = prisma7Schema('prisma/schema', postgresPrisma7Options);
     const result = await config.source.load(postgresSourceContext([dir]));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(Object.keys(result.value.domain.namespaces['public']?.models ?? {})).toEqual(['Post']);
+    expect(Object.keys(result.value.domain.namespaces['public']?.models ?? {}).sort()).toEqual([
+      'Deep',
+      'Nested',
+      'Post',
+    ]);
+  });
+
+  it('names a nested file by its path under the directory in diagnostics', async () => {
+    const dir = scratchDir('nested-diagnostic');
+    writeFileSync(join(dir, 'schema.prisma'), 'datasource db {\n  provider = "postgresql"\n}\n');
+    mkdirSync(join(dir, 'models'));
+    writeFileSync(join(dir, 'models', 'broken.prisma'), 'model Broken {\n  id Int\n');
+
+    const config = prisma7Schema('prisma/schema', postgresPrisma7Options);
+    const result = await config.source.load(postgresSourceContext([dir]));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failure.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: 'PSL_UNTERMINATED_BLOCK',
+        sourceId: 'prisma/schema/models/broken.prisma',
+      }),
+    );
   });
 
   it('reports a diagnostic with the file id when a file in the directory is malformed', async () => {

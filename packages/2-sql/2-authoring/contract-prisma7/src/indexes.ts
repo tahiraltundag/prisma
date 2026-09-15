@@ -92,13 +92,36 @@ export function parseIndexAttribute(
   return { fields, map, type, span: attribute.span };
 }
 
-/** Prisma 7's default index name: `{table}_{columns}_idx`, or `_key` for a unique index. */
+/** PostgreSQL's identifier limit (`NAMEDATALEN - 1`), which Prisma 7 fits its generated names into. */
+const POSTGRES_IDENTIFIER_BYTES = 63;
+const utf8 = new TextEncoder();
+
+/**
+ * A generated constraint name as Prisma 7 spells it: `base` cut so that
+ * `base + suffix` is at most 63 bytes, cut on a character boundary, with the
+ * suffix kept whole. Prisma 7.10.0 emits `..._aVeryLongCo_idx` for a long
+ * `@@index`, `..._AB_pkey` and `..._B_index` for a long implicit junction, and
+ * cuts a multi-byte name before the character that would cross the budget.
+ */
+export function prisma7ConstraintName(base: string, suffix: string): string {
+  const budget = POSTGRES_IDENTIFIER_BYTES - utf8.encode(suffix).length;
+  let bytes = 0;
+  let kept = '';
+  for (const character of base) {
+    bytes += utf8.encode(character).length;
+    if (bytes > budget) break;
+    kept += character;
+  }
+  return `${kept}${suffix}`;
+}
+
+/** Prisma 7's default index name: `{table}_{columns}_idx`, or `_key` for a unique index, cut to 63 bytes. */
 export function defaultIndexName(
   tableName: string,
   columns: readonly string[],
   unique: boolean,
 ): string {
-  return `${tableName}_${columns.join('_')}_${unique ? 'key' : 'idx'}`;
+  return prisma7ConstraintName(`${tableName}_${columns.join('_')}`, unique ? '_key' : '_idx');
 }
 
 export function indexNode(
