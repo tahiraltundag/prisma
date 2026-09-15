@@ -23,6 +23,7 @@ import type {
   RelationNode,
 } from '@internal/sql-contract-ts/contract-builder';
 import { prisma7Diagnostic } from './diagnostics';
+import { prisma7ConstraintName } from './indexes';
 
 export interface RelationAttribute {
   readonly name: string | undefined;
@@ -509,7 +510,7 @@ function synthesizeJunction(
   const idB = singleIdColumn(sideB, label, diagnostics);
   if (idA === undefined || idB === undefined) return undefined;
 
-  const tableName = `_${name}`;
+  const tableName = prisma7ConstraintName(`_${name}`, '');
   const namespaceId = sideA.model.namespaceId;
   const foreignKey = (column: 'A' | 'B', side: JunctionSide, id: FieldNode): ForeignKeyNode => ({
     columns: [column],
@@ -542,7 +543,7 @@ function synthesizeJunction(
     options: undefined,
     where: undefined,
     unique: undefined,
-    map: `${tableName}_B_index`,
+    map: prisma7ConstraintName(`_${name}`, '_B_index'),
     name: undefined,
   };
   return {

@@ -35,7 +35,7 @@ The package itself is target-neutral: the Postgres facade supplies the target pa
 | `@default(...)` | Column defaults through the target's default function registry, literals, list literals, enum members; `uuid`, `ulid`, `nanoid`, `cuid` are execution generators (`cuid` maps to `cuid2`). |
 | `@updatedAt` | The "now" generator the target picks for the column's codec (Postgres: `plainDateTimeNow` for `timestamp`, `instantNow` for `@db.Timestamptz`) on create and update, no column default. |
 | `@id`, `@@id` | Primary key. |
-| `@unique`, `@@unique`, `@@index` | Indexes named `{table}_{columns}_key` and `{table}_{columns}_idx`, `map` overriding, `type` mapped. |
+| `@unique`, `@@unique`, `@@index` | Indexes named `{table}_{columns}_key` and `{table}_{columns}_idx` cut to 63 bytes as Prisma 7 cuts them, `map` overriding, `type` mapped. |
 | Explicit relations | Foreign keys with `onDelete` `restrict` (required) or `setNull` (optional) and `onUpdate` `cascade` unless given; paired through `@internal/sql-contract-psl/resolution`. |
 | Implicit many-to-many | Junction `_AToB` or `_Name`: columns `A` and `B`, primary key `(A, B)`, index `_AToB_B_index`, cascading foreign keys. |
 | `@ignore`, `@@ignore` | Omitted, together with relations over them. |
@@ -77,7 +77,7 @@ Explicit relations keep their fields, references, and actions; an omitted `onDel
 
 By decision (option (a)), a generator or `@updatedAt` on an optional field is `PRISMA7_OPTIONAL_GENERATED_FIELD_UNSUPPORTED` and `@updatedAt` combined with `@default` is `PRISMA7_UPDATED_AT_WITH_DEFAULT_UNSUPPORTED`; Prisma 8 cannot spell either yet.
 
-`@unique` and `@@unique` become unique indexes named `{table}_{columns}_key` and `@@index` becomes an index named `{table}_{columns}_idx`, `map` overriding either (`name` on `@@unique` is the client-side name and is ignored). `type: Hash` and the other Prisma 8 index types map through; field arguments such as `sort` and `length`, and `ops`, are `PRISMA7_INDEX_ARGUMENT_UNSUPPORTED` because Prisma 8 indexes carry none.
+`@unique` and `@@unique` become unique indexes named `{table}_{columns}_key` and `@@index` becomes an index named `{table}_{columns}_idx`, `map` overriding either (`name` on `@@unique` is the client-side name and is ignored). A generated name is cut the way Prisma 7 cuts it to fit PostgreSQL's 63-byte identifier limit: the `{table}_{columns}` part is shortened to 63 bytes minus the suffix, on a character boundary, and the suffix stays whole (`AVeryLongModelNameThatKeepsGoingAndGoingForever_aVeryLongCo_idx`). The same rule cuts an implicit junction's table name (no suffix) and its `_B_index`. `db verify` compares indexes by name, so the contract must carry the name Prisma 7 created. `type: Hash` and the other Prisma 8 index types map through; field arguments such as `sort` and `length`, and `ops`, are `PRISMA7_INDEX_ARGUMENT_UNSUPPORTED` because Prisma 8 indexes carry none.
 
 ## Multi-file input
 
