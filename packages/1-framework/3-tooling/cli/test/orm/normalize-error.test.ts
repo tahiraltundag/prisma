@@ -3,7 +3,7 @@ import { structuredError } from '@internal/utils/structured-error';
 import { CliStructuredError as EngineStructuredError } from '@prisma/cli-engine/protocol';
 import { describe, expect, it } from 'vitest';
 import { normalizeError, toEngineDiagnostic } from '../../src/orm/normalize-error';
-import { errorSpaceNotFound } from '../../src/utils/cli-errors';
+import { errorSpaceNotFound, requireLiveDatabase } from '../../src/utils/cli-errors';
 
 describe('normalizeError', () => {
   describe('a prisma/prisma error carrying fix prose', () => {
@@ -232,6 +232,21 @@ describe('toEngineDiagnostic', () => {
     expect(JSON.stringify(normalizeError(raised).toEnvelope?.() ?? diagnostic)).not.toContain(
       '{bin}',
     );
+  });
+
+  it('resolves the binary in a retry command handed to the live-database requirement', () => {
+    const error = requireLiveDatabase({
+      dbConnection: undefined,
+      hasDriver: true,
+      why: 'needs a database',
+      commandName: 'migration status',
+      retryCommand: '{bin} migration status --from <contract>',
+    });
+
+    expect(error).not.toBeNull();
+    const envelope = JSON.stringify(normalizeError(error));
+    expect(envelope).toContain('prisma migration status --from <contract>');
+    expect(envelope).not.toContain('{bin}');
   });
 
   it('always carries a next-action list', () => {
