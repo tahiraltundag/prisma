@@ -151,6 +151,11 @@ describe('adopting Prisma 8 beside Prisma 7', () => {
             /^\/\/ use prisma-8\n\/\/ Converted from prisma\/schema\.prisma by `prisma contract convert`\.\n/,
           );
           const cutover = ['--config', 'prisma.config.cutover.ts'];
+          // The converted file must produce the artifacts on its own, so the
+          // Prisma 7 emit's files go first: a no-op emit would otherwise
+          // compare the stale file with itself.
+          rmSync(join(dir, 'generated/prisma8/contract.json'));
+          rmSync(join(dir, 'generated/prisma8/contract.d.ts'));
           await v8('contract', 'emit', ...cutover);
           expect(JSON.parse(readContract(dir))).toEqual(JSON.parse(prisma7Contract));
           await verifyHasNoFindings(dir, connectionString, cutover);
