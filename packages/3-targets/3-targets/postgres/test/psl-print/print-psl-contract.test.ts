@@ -220,6 +220,42 @@ describe('printPostgresPslContract', () => {
     );
   });
 
+  it('names an unused enum whose type name is not an identifier by a sanitized block name with @@map', () => {
+    const contract = loadFixture('enum-native');
+    const publicEntries: PostgresNamespaceEntries | undefined =
+      contract.storage.namespaces['public']?.entries;
+    const renamed = {
+      ...contract,
+      storage: {
+        ...contract.storage,
+        namespaces: {
+          ...contract.storage.namespaces,
+          public: {
+            ...contract.storage.namespaces['public'],
+            entries: {
+              ...publicEntries,
+              native_enum: {
+                ...publicEntries?.native_enum,
+                'order-status': {
+                  ...publicEntries?.native_enum?.['Unused'],
+                  typeName: 'order-status',
+                  members: ['open', 'closed'],
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const printed = printPsl(printPostgresPslContract(renamed as never), {
+      header: '// Converted.',
+      pslBlockDescriptors,
+    }).replace(/ {2,}/g, ' ');
+    expect(printed).toContain('native_enum OrderStatus {');
+    expect(printed).toContain('@@map("order-status")');
+    expect(printed).toContain('open = "open"');
+  });
+
   it('refuses a construct with no spelling by naming the model and field', () => {
     const json: unknown = JSON.parse(
       readFileSync(join(corpusDir, 'scalars', 'expected-contract.json'), 'utf8'),

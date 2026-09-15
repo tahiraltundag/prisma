@@ -19,8 +19,6 @@ import { PG_ENUM_CODEC_ID } from './print-types';
 
 const PRINTABLE_ENTRY_KINDS: ReadonlySet<string> = new Set(['table', 'native_enum', 'valueSet']);
 
-const PSL_IDENTIFIER = /^[A-Za-z_]\w*$/;
-
 /**
  * Prints a Postgres contract as the Prisma 8 PSL document that interprets
  * back to the same contract: every namespace becomes a `namespace { … }`
@@ -68,17 +66,12 @@ export function printPostgresPslContract(contract: Contract<SqlStorage>): PslDoc
     );
     const enumBlocks: PslExtensionBlock[] = Object.values(entries.native_enum ?? {}).map(
       (nativeEnum) => {
-        // The block name is a label: the value-set handle when a column names
-        // it, else the type name made an identifier, with `@@map` carrying the
-        // type name. Member identifiers are labels too; the value travels in
-        // the quoted string, so a value that is not an identifier is spelled
-        // through the same sanitizer `contract infer` uses.
-        const handle =
-          enumHandleByTypeName.get(nativeEnum.typeName) ?? toEnumName(nativeEnum.typeName).name;
-        if (!PSL_IDENTIFIER.test(handle)) {
-          throw new InternalError(
-            `Enum "${nativeEnum.typeName}": block name "${handle}" is not a PSL identifier, so the enum has no Prisma 8 PSL spelling`,
-          );
+        // Member identifiers are labels; the value travels in the quoted
+        // string, so a value that is not an identifier is spelled through the
+        // same sanitizer `contract infer` uses.
+        const handle = enumHandleByTypeName.get(nativeEnum.typeName);
+        if (handle === undefined) {
+          throw new InternalError(`Enum "${nativeEnum.typeName}": no block name was resolved`);
         }
         return buildNativeEnumBlock(handle, nativeEnum.typeName, nativeEnum.members);
       },
@@ -100,8 +93,11 @@ export function printPostgresPslContract(contract: Contract<SqlStorage>): PslDoc
  * The `native_enum` block name for each enum type in a namespace. The block
  * name survives in the contract only as the `valueSet` entry name, which the
  * enum columns reference beside the type name; an enum no column uses is
- * matched to a value set with the same members, and failing that keeps its
- * type name as its block name.
+ * matched to a value set with the same members, and failing that takes its
+ * type name made an identifier (`toEnumName`, always an identifier: letters
+ * and digits joined, a leading `_` for a reserved word or digit), with
+ * `@@map` carrying the type name; a name another enum already holds gets a
+ * numeric suffix.
  */
 function enumHandles(
   namespaceId: string,
@@ -130,7 +126,13 @@ function enumHandles(
         valueSet.values.every((value, index) => value === nativeEnum.members[index]),
     );
     const [match] = matching;
-    const handle = matching.length === 1 && match !== undefined ? match[0] : nativeEnum.typeName;
+    let handle =
+      matching.length === 1 && match !== undefined
+        ? match[0]
+        : toEnumName(nativeEnum.typeName).name;
+    for (let suffix = 2; claimedHandles.has(handle); suffix += 1) {
+      handle = `${toEnumName(nativeEnum.typeName).name}${suffix}`;
+    }
     claimedHandles.add(handle);
     handles.set(nativeEnum.typeName, handle);
     handles.set(`${namespaceId}.${nativeEnum.typeName}`, handle);
