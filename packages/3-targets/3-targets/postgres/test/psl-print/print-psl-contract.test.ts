@@ -87,6 +87,9 @@ function withColumnTweak(name: string, columnPatch: Record<string, unknown> = {}
   };
 }
 
+/** Every Prisma 7 fixture with an `expected-contract.json`; a new fixture raises this and the integration round trip's count together. */
+const CORPUS_CASE_COUNT = 20;
+
 const corpus = readdirSync(corpusDir)
   .filter((name) =>
     statSync(join(corpusDir, name, 'expected-contract.json'), { throwIfNoEntry: false })?.isFile(),
@@ -95,7 +98,7 @@ const corpus = readdirSync(corpusDir)
 
 describe('printPostgresPslContract', () => {
   it('prints every fixture of the Prisma 7 corpus', () => {
-    expect(corpus.length).toBeGreaterThan(10);
+    expect(corpus.length).toBe(CORPUS_CASE_COUNT);
     for (const name of corpus) {
       expect(printFixture(name)).toContain('// use prisma-8\n// Converted.\n');
     }
