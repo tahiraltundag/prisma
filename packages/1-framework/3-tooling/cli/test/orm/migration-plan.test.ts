@@ -166,8 +166,9 @@ describe('migration plan', () => {
 
     expect(run.presented?.presentation.next).toEqual([
       { kind: 'edit-file', label: `Review ${dir}` },
-      { kind: 'run-command', label: 'Apply the migration', command: '{bin} db migrate' },
+      { kind: 'run-command', label: 'Apply the migration', command: 'prisma db migrate' },
     ]);
+    expect(run.stderr).not.toContain('{bin}');
   });
 
   it('reports no changes without writing a package', async () => {

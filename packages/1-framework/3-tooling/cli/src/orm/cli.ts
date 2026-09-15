@@ -5,6 +5,7 @@ import { createCli, telemetryCommandGroup } from '@prisma/cli-engine';
 import { version as CLI_VERSION } from '../../package.json' with { type: 'json' };
 import { createControlClient } from '../control-api/client';
 import type { CreateControlClient } from '../control-api/types';
+import { BIN_NAME } from './bin-name';
 import { contractConvertCommand } from './contract/convert';
 import { contractEmitCommand } from './contract/emit';
 import { contractInferCommand } from './contract/infer';
@@ -43,7 +44,6 @@ import { resolveTelemetryHooks } from './telemetry/reporting';
  * users run them. The real host lives in the prisma-cli repo and consumes
  * {@link ormCommandFamily} from this package's exports.
  */
-export const BIN_NAME = 'prisma';
 
 export const TELEMETRY_DOCS_URL = 'https://www.prisma.io/docs/cli/telemetry';
 
@@ -230,3 +230,5 @@ export async function runOrmCli(proc: HostProcess): Promise<number> {
     return reportStartupFailure(proc, error);
   }
 }
+
+export { BIN_NAME };
