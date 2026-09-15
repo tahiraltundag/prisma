@@ -24,6 +24,10 @@ import {
   hasPslContractPrint,
   hasSchemaView,
 } from '@internal/framework-components/control';
+import {
+  type ImportSpecifierResolver,
+  keepInternalSpecifiers,
+} from '@internal/framework-components/emission';
 import type { PslDocumentAst } from '@internal/framework-components/psl-ast';
 import { ifDefined } from '@internal/utils/defined';
 import { InternalError } from '@internal/utils/internal-error';
@@ -37,6 +41,7 @@ import { executeDbUpdate } from './operations/db-update';
 import { type ExecuteDbVerifyResult, executeDbVerify } from './operations/db-verify';
 import { executeMigrate } from './operations/migrate';
 
+import type { RenderContractDtsOptions, RenderContractDtsResult } from './render-contract-dts';
 import type {
   ControlActionName,
   ControlClient,
@@ -732,16 +737,7 @@ class ControlClientImpl implements ControlClient {
         });
       }
 
-      const result = await emitContractArtifacts(
-        deserializedContract,
-        this.stack!,
-        this.options.family.emission,
-        {
-          serializeContract: (contract) =>
-            this.options.target.contractSerializer.serializeContract(contract),
-          ...ifDefined('supportsNamespaces', this.options.target.supportsNamespaces),
-        },
-      );
+      const result = await this.emitArtifacts(deserializedContract, keepInternalSpecifiers);
 
       onProgress?.({
         action: 'emit',
@@ -772,5 +768,50 @@ class ControlClientImpl implements ControlClient {
         meta: undefined,
       });
     }
+  }
+
+  async renderContractDts(options: RenderContractDtsOptions): Promise<RenderContractDtsResult> {
+    this.init();
+    if (!this.familyInstance) {
+      throw new InternalError('Family instance was not initialized. This is a bug.');
+    }
+
+    let contract: Contract;
+    try {
+      contract = this.familyInstance.deserializeContract(options.contract);
+    } catch (error) {
+      return notOk({
+        code: 'CONTRACT_VALIDATION_FAILED',
+        summary: 'Contract validation failed',
+        why: error instanceof Error ? error.message : String(error),
+        cause: error,
+      });
+    }
+
+    try {
+      const { contractDts } = await this.emitArtifacts(
+        contract,
+        options.resolveImportSpecifier ?? keepInternalSpecifiers,
+      );
+      return ok({ contractDts });
+    } catch (error) {
+      return notOk({
+        code: 'RENDER_FAILED',
+        summary: 'Failed to render contract types',
+        why: error instanceof Error ? error.message : String(error),
+        cause: error,
+      });
+    }
+  }
+
+  private emitArtifacts(
+    contract: Contract,
+    resolveImportSpecifier: ImportSpecifierResolver,
+  ): ReturnType<typeof emitContractArtifacts> {
+    return emitContractArtifacts(contract, this.stack!, this.options.family.emission, {
+      serializeContract: (c) => this.options.target.contractSerializer.serializeContract(c),
+      resolveImportSpecifier,
+      ...ifDefined('supportsNamespaces', this.options.target.supportsNamespaces),
+    });
   }
 }
