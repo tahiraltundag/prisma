@@ -31,7 +31,7 @@ Out: any production code under `packages/`. Any change to the PSL interpreter or
 
 ## References
 
-- Slice spec and plan (above). Project spec: `projects/prisma7-contract-source/spec.md`. Operator rules: `projects/prisma7-contract-source/HANDOVER.md` § Will's rules.
+- Slice spec and plan (above). Project spec: `projects/prisma7-contract-source/spec.md`. Operator rules: `projects/prisma7-contract-source/design-notes.md` § Principles and § Open questions.
 - Existing tests to copy from: `test/integration/test/prisma7-source/supported.integration.test.ts`, `test/integration/test/authoring/parity/` fixtures (native enums, map attributes, core surface), `packages/2-sql/2-authoring/contract-psl/test/interpreter.relations.many-to-many.test.ts` (junction pairing), `test/integration/test/temporal-defaults/_fixture-timestamp/contract.prisma` (presets).
 - PSL dialect: `packages/2-sql/2-authoring/contract-psl/README.md`. Prisma 7 rules: `packages/2-sql/2-authoring/contract-prisma7/README.md`.
 - Repo rules: `CLAUDE.md`, `.agents/rules/running-tests.mdc` (save output under `wip/`, read the file), `.agents/rules/git-staging.mdc`. Failure modes F3, F5 (no destructive git), F13, F14 in `drive/calibration/failure-modes.md`.

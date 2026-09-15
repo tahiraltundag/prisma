@@ -5,7 +5,7 @@
 
 Six dispatches (1, 1b, 2, 3, 4, 5), sequential, test-first. Dispatch 1 proves by hand that every construct the Prisma 7 source produces has a Prisma 8 spelling before any printer code exists; its hand-written file is the shape the printer must reach. Briefs are numbered files under `dispatches/`.
 
-Calibration threaded into every brief: `drive/calibration/failure-modes.md` F3, F13, F14, F16, F24, F28; `drive/calibration/grep-library.md` cross-cutting anti-patterns; operator rules in `projects/prisma7-contract-source/HANDOVER.md` § Will's rules.
+Calibration threaded into every brief: `drive/calibration/failure-modes.md` F3, F13, F14, F16, F24, F28; `drive/calibration/grep-library.md` cross-cutting anti-patterns; operator rules in `projects/prisma7-contract-source/design-notes.md` § Principles.
 
 ### Dispatch 1: hand-written Prisma 8 spelling of the supported fixture
 
