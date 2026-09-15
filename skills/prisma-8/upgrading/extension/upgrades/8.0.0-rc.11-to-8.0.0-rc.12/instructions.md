@@ -5,6 +5,7 @@ to: 8.0.0-rc.12
 # `@prisma/orm-postgres/config`. Additive; nothing for an extension author to translate.
 # The slice 3 PR (contract convert) changes only that package's README, a docs-only
 # diff with nothing to translate either.
+# contract.d.ts now orders every collection the way contract.json does; a re-emit reorders, nothing else.
 changes:
   - id: expression-codec-on-return-type
     summary: Move custom expression wrapper codec metadata to returnType.codec and remove the separate ExpressionImpl codec argument.

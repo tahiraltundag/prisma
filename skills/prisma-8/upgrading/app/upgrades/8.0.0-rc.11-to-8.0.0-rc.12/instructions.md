@@ -3,6 +3,7 @@ from: 8.0.0-rc.11
 to: 8.0.0-rc.12
 # The Prisma 7 contract source PR adds the `examples/prisma7-adoption` example and the
 # `prisma7Schema` config surface. Additive; nothing for a Prisma 8 user to translate.
+# contract.d.ts now orders every collection the way contract.json does; a re-emit reorders, nothing else.
 changes:
   - id: json-default-literal-is-json-text
     summary: |
