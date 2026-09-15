@@ -216,3 +216,111 @@ See F-4, F-5 and F-9. One extra check for F-4: with `contract: 'other/dir/contra
 - **F-7 ℹ Note (steps 3 and 4).** `contract emit --format human` ends with two bare absolute paths (`/Users/.../prisma/contract.json`, `/Users/.../prisma/contract.d.ts`) after the hash block, repeating the `contract:`/`types:` lines above. Looks like stray output.
 - **F-8 ℹ Note (steps 5 and 7).** The overwrite warning `Overwriting existing file: other/dir/contract.prisma` prints with no glyph or indent, between `✔ Resolving contract source...` and `│  source:`, unlike every other line in the CLI's human output. In JSON it is a proper `severity: "warn"` message.
 - **F-9 ℹ Note (steps 4 and 8).** Guessing the READMEs left me doing: (a) neither README names the command that lists refs; `migration ref --help` does (`list`). (b) The guide says `prisma migration ref set db <timestamp>_baseline` without saying the directory name is printed by `migration plan` (`baseline: migrations/app/20260915T0546_baseline`) and that its form is `YYYYMMDDTHHMM_baseline`. (c) `db sign` already advances the `db` ref to the same hash (`✔ Advanced ref "db" → ...`, and `refs/db.json` exists from the first sign in step 1), so the guide's `migration ref set db <timestamp>_baseline` step is a no-op the guide does not explain. (d) The CLI README says the default output is `contract.prisma` beside `config.contract.output`; a user with `prisma7Schema('prisma/schema.prisma')` has to know from the other README that this means `prisma/contract.prisma`. The convert command's own output does name the path, which resolved it.
+
+## Re-run after dispatch 5
+
+Date: 2026-09-15, same scratch app (`wip/qa-convert/`), same dev database, CLI rebuilt from the dispatch 5 commits (`5d8a123d26` … `803720fb82`). Logs: `wip/qa-convert/logs/rerun*-*.log`. Steps 4, 5, 6, and 8 of the script were repeated; steps 1 to 3 and 7 were not affected by any finding.
+
+### Step 4
+
+The earlier baseline directory was removed so the plan would record one again.
+
+```
+$ node $CLI migration plan --name baseline --format human   # exit 0
+│  contract:    prisma/contract.json
+│  migrations:  migrations/app
+│  name:        baseline
+
+✔ Recorded the current schema as a baseline (13 operation(s)); nothing to apply
+
+migrations/app/20260915T0609_baseline (the schema the baseline records)
+├─ Create schema "public"
+... (13 operations)
+└─ Add foreign key "_PostToTag_B_fkey" on "_PostToTag"
+
+from:      67027c1b...
+to:        67027c1b...
+baseline:  migrations/app/20260915T0609_baseline
+
+ℹ DDL preview of what the baseline records — already in the database, not applied
+CREATE SCHEMA IF NOT EXISTS "public";
+...
+→ Review migrations/app/20260915T0609_baseline
+→ Confirm the database is up to date: prisma migration status
+$ node $CLI db sign --format human   # exit 0
+✔ Database signed
+from:  67027c1b...
+to:    67027c1b...
+✔ Advanced ref "db" → 67027c1b... (was 67027c1b...)
+$ node $CLI migration ref set db 20260915T0609_baseline --format human   # exit 0
+✔ Set ref "db" → 67027c1b...
+$ node $CLI migration ref list --format human
+Ref  Contract
+db   67027c1b...
+$ node $CLI migration status --format human   # exit 0
+○   67027c1  @contract @db (db)
+│↑  20260915T0609_baseline        ∅ → 67027c1  13 ops
+○   ∅
+✔ Up to date
+```
+
+### Step 5
+
+```
+$ node $CLI contract convert --format human   # PSL config; exit 2
+✘ [CONTRACT.CONVERT_REQUIRES_PRISMA7_SOURCE] contract convert applies only to a Prisma 7 schema source
+  why: The configured contract source has format "psl"; only a source created with prisma7Schema(...) can be converted.
+→ Point contract: at prisma7Schema("<path to schema.prisma>") in prisma.config.ts, then run contract convert again.
+$ shasum -c logs/rerun5-before.sha   # prisma/contract.prisma: OK
+$ node $CLI contract convert --output other/dir/contract.prisma --format human   # Prisma 7 config restored; exit 0
+▸ Resolving contract source...
+✔ Resolving contract source...
+│  source:  prisma/schema.prisma
+
+⚠ Overwrote existing file other/dir/contract.prisma
+✔ Contract written to other/dir/contract.prisma
+$ node $CLI contract convert --output other/dir/contract.prisma   # exit 0
+  ... "psl":{"path":"other/dir/contract.prisma","overwrote":true} ...   (no message event any more)
+```
+
+### Step 6
+
+`updatedAt DateTime? @updatedAt` added to `Post` (line 26).
+
+```
+$ node $CLI contract convert --format human   # exit 2
+✘ [CONTRACT.SOURCE_LOAD_FAILED] Failed to resolve contract source
+  why: Prisma 7 schema interpretation failed
+→ Edit the schema where each finding points, then run contract convert again.
+✘ [CONTRACT.SOURCE_DIAGNOSTIC] prisma/schema.prisma:26:23 PRISMA7_OPTIONAL_GENERATED_FIELD_UNSUPPORTED: Field "Post.updatedAt" is optional ... drop the "?".
+$ node $CLI contract convert   # exit 2, "nextActions":[{"kind":"user-choice","label":"Edit the schema where each finding points, then run contract convert again."}]
+$ shasum -c logs/rerun6-before.sha   # prisma/contract.prisma: OK, other/dir/contract.prisma: OK
+```
+
+### Step 8
+
+```
+$ node $CLI contract emit --format human   # config: other/dir/contract.prisma; exit 0
+│  contract:  other/dir/contract.json
+│  types:     other/dir/contract.d.ts
+✔ Emitted contract.json and contract.d.ts
+storageHash: 67027c1b...  executionHash: 0d9fcbcd...  profileHash: 3916f444...
+/Users/.../wip/qa-convert/other/dir/contract.json
+/Users/.../wip/qa-convert/other/dir/contract.d.ts
+$ node $CLI db verify --format human   # exit 0  ✔ Database marker and schema match contract
+$ node $CLI db migrate --format human   # exit 0
+✔ Already up to date
+→ Check every space against the database: prisma migration status
+```
+
+### Findings after dispatch 5
+
+- **F-1 fixed** (`d3ac929ce3`). Summary "Recorded the current schema as a baseline (13 operation(s)); nothing to apply"; tree and preview headers say the operations are what the baseline records; next action is `prisma migration status`, not "apply". By design, not a planner defect: `packages/1-framework/3-tooling/cli/src/control-api/operations/migration-plan.ts`, the `fromHash === toStorageHash` branch after the baseline leg, records the schema as a baseline bundle when the `db` ref names the contract but no on-disk migration reaches it; the operations were the baseline leg's, the "+ 0 operation(s)" counted the delta leg. Planning semantics unchanged; `migration-plan.test.ts` asserts the wording and the actions.
+- **F-2 fixed** (`0571869ce9`, `647225554e`). `→ Confirm the database is up to date: prisma migration status`, `→ Check every space against the database: prisma migration status`. The engine substitutes `{bin}` only in help examples; the CLI now resolves it in `runCommandAction` (every success-path action) and `normalizeError` (every settled error: labels, commands, why, summary, nested diagnostics). Tests in `normalize-error.test.ts` and `migration-plan.test.ts`.
+- **F-3 fixed** (`5d8a123d26`). "run contract convert again"; `contract emit` keeps its wording (`control-api/contract-emit.test.ts`); `contract-convert.test.ts` drives the real loader through a failing source.
+- **F-4 documented** (`803720fb82`): CLI README, `prisma contract convert`, paragraph "Where the artifacts go after the switch", verified again in step 8 (`other/dir/contract.json` written, `prisma/contract.json` left in place).
+- **F-5 documented** (`803720fb82`): CLI README, the bulleted list under "The converted contract is the contract the Prisma 7 source produced".
+- **F-6 fixed** (`7380d4e874`). `from: 67027c1b...` beside `(was 67027c1b...)`. The family recorded the previous marker only when it changed; it now records the marker it found. Regression test: the Prisma 7 journey signs twice and asserts `marker.previous.storageHash`.
+- **F-7 documented** (`2bd638a7bf`). The two path lines are `contract emit`'s stdout data for pipes; the engine drops that mirror when both stdout and stderr are terminals (`contract-emit.test.ts`, "on a terminal the paths are not mirrored to stdout"). They appear only when `--format human` is forced with stdout redirected, which is how these logs are captured; a terminal user does not see them.
+- **F-8 fixed** (`2bd638a7bf`). `⚠ Overwrote existing file other/dir/contract.prisma` as a warn block; the JSON document carries `psl.overwrote`. The engine renders bare message events without a glyph, so the fact travels in the document instead (same change in `contract infer`).
+- **F-9 documented** (`803720fb82`): CLI README, "What each step prints and means" under the cutover block — `migration ref list`, the `YYYYMMDDTHHMM_baseline` directory as `migration plan` prints it, `db sign` advancing the `db` ref, and `migration ref set db <timestamp>_baseline` confirming rather than changing it after `db sign` (may be skipped once `ref list` shows the hash). The default output path for `prisma7Schema('prisma/schema.prisma')` is spelled out.
