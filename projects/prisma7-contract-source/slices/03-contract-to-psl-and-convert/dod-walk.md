@@ -1,6 +1,6 @@
 # Slice 3 Definition of Done walk — 2026-09-15
 
-Walked by the orchestrator against the slice spec's checklist and the team overlay in `drive/calibration/dod.md`. Reviewer verdict on the code: SATISFIED after five rounds across dispatches 1, 1b, 2, 3, 4 (findings S3-1 to S3-15, all closed). Tip at the walk: the dispatch 5 tip (see `git log`), after the QA re-run.
+Walked by the orchestrator against the slice spec's checklist and the team overlay in `drive/calibration/dod.md`. Reviewer verdict on the code: SATISFIED after five rounds across dispatches 1, 1b, 2, 3, 4 (findings S3-1 to S3-15, all closed). Tip at the walk: `727a509cfc` (after merging the PR 30287 review-thread fixes; corpus 20 cases, all fifteen gates exit 0). PR https://github.com/prisma/orm/pull/30300.
 
 ## Slice-specific items (slice spec)
 
