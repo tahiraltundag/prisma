@@ -85,9 +85,12 @@ function actionsFromFix(fix: string | undefined): readonly NextAction[] {
  * settled error crosses.
  */
 function resolveBinInAction(action: NextAction): NextAction {
-  return action.kind === 'run-command'
-    ? { ...action, label: resolveBin(action.label), command: resolveBin(action.command) }
-    : { ...action, label: resolveBin(action.label) };
+  return {
+    ...action,
+    label: resolveBin(action.label),
+    ...ifDefined('command', action.command === undefined ? undefined : resolveBin(action.command)),
+    ...ifDefined('commands', action.commands?.map(resolveBin)),
+  };
 }
 
 function resolveBinInDiagnostic(diagnostic: Diagnostic): Diagnostic {
