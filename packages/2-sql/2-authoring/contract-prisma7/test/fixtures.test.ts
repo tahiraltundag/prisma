@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { Contract } from '@internal/contract/types';
 import type { SqlStorage } from '@internal/sql-contract/types';
 import { PostgresContractSerializer } from '@internal/target-postgres/runtime';
@@ -7,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { prisma7Schema } from '../src/provider';
 import { postgresPrisma7Options, postgresSourceContext } from './support';
 
-const fixturesDir = join(dirname(new URL(import.meta.url).pathname), 'fixtures');
+const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const update = process.env['UPDATE_PRISMA7_FIXTURES'] === '1';
 
 interface ExpectedDiagnostic {
