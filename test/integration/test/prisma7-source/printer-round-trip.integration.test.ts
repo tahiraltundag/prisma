@@ -38,7 +38,7 @@ const corpusDir = join(
 
 const CONVERT_HEADER = '// Converted from prisma/schema.prisma by `prisma contract convert`.';
 const scratchDir = join(testDir, '../../../../wip/printer-round-trip');
-const CORPUS_CASE_COUNT = 17;
+const CORPUS_CASE_COUNT = 18;
 
 const stack = createControlStack({
   family: sql,

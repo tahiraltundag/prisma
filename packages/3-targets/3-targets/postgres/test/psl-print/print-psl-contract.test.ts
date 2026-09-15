@@ -182,7 +182,7 @@ describe('printPostgresPslContract', () => {
     expect(printed).toContain('@@index([B], map: "_PostToTag_B_index")');
   });
 
-  it('refuses an enum value that is not a PSL identifier, naming the enum and the value', () => {
+  it('spells an enum value that is not a PSL identifier through a sanitized member label', () => {
     const contract = loadFixture('enum-native');
     const publicEntries: PostgresNamespaceEntries | undefined =
       contract.storage.namespaces['public']?.entries;
@@ -205,9 +205,12 @@ describe('printPostgresPslContract', () => {
         },
       },
     };
-    expect(() => printPostgresPslContract(spaced as never)).toThrow(
-      /Enum "user_role": value "user role" is not a PSL identifier/,
-    );
+    const printed = printPsl(printPostgresPslContract(spaced as never), {
+      header: '// Converted.',
+      pslBlockDescriptors,
+    }).replace(/ {2,}/g, ' ');
+    expect(printed).toContain('userRole = "user role"');
+    expect(printed).toContain('ADMIN = "ADMIN"');
   });
 
   it('refuses a type param the constructor cannot carry, naming the model and field', () => {

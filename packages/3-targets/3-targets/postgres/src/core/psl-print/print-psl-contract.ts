@@ -1,4 +1,5 @@
 import type { Contract, ExecutionMutationDefaultPhases } from '@internal/contract/types';
+import { toEnumName } from '@internal/family-sql/psl-infer';
 import type {
   PslDocumentAst,
   PslExtensionBlock,
@@ -67,18 +68,17 @@ export function printPostgresPslContract(contract: Contract<SqlStorage>): PslDoc
     );
     const enumBlocks: PslExtensionBlock[] = Object.values(entries.native_enum ?? {}).map(
       (nativeEnum) => {
-        const handle = enumHandleByTypeName.get(nativeEnum.typeName) ?? nativeEnum.typeName;
+        // The block name is a label: the value-set handle when a column names
+        // it, else the type name made an identifier, with `@@map` carrying the
+        // type name. Member identifiers are labels too; the value travels in
+        // the quoted string, so a value that is not an identifier is spelled
+        // through the same sanitizer `contract infer` uses.
+        const handle =
+          enumHandleByTypeName.get(nativeEnum.typeName) ?? toEnumName(nativeEnum.typeName).name;
         if (!PSL_IDENTIFIER.test(handle)) {
           throw new InternalError(
             `Enum "${nativeEnum.typeName}": block name "${handle}" is not a PSL identifier, so the enum has no Prisma 8 PSL spelling`,
           );
-        }
-        for (const member of nativeEnum.members) {
-          if (!PSL_IDENTIFIER.test(member)) {
-            throw new InternalError(
-              `Enum "${nativeEnum.typeName}": value "${member}" is not a PSL identifier, so the member has no Prisma 8 PSL spelling`,
-            );
-          }
         }
         return buildNativeEnumBlock(handle, nativeEnum.typeName, nativeEnum.members);
       },
