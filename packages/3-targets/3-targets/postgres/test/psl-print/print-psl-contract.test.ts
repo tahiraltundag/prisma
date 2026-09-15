@@ -256,6 +256,41 @@ describe('printPostgresPslContract', () => {
     expect(printed).toContain('open = "open"');
   });
 
+  it('gives two unused enums whose sanitized names collide distinct block names', () => {
+    const contract = loadFixture('enum-native');
+    const publicEntries: PostgresNamespaceEntries | undefined =
+      contract.storage.namespaces['public']?.entries;
+    const unused = publicEntries?.native_enum?.['Unused'];
+    const colliding = {
+      ...contract,
+      storage: {
+        ...contract.storage,
+        namespaces: {
+          ...contract.storage.namespaces,
+          public: {
+            ...contract.storage.namespaces['public'],
+            entries: {
+              ...publicEntries,
+              native_enum: {
+                ...publicEntries?.native_enum,
+                'order-status': { ...unused, typeName: 'order-status', members: ['open'] },
+                order_status: { ...unused, typeName: 'order_status', members: ['closed'] },
+              },
+            },
+          },
+        },
+      },
+    };
+    const printed = printPsl(printPostgresPslContract(colliding as never), {
+      header: '// Converted.',
+      pslBlockDescriptors,
+    }).replace(/ {2,}/g, ' ');
+    expect(printed).toContain('native_enum OrderStatus {');
+    expect(printed).toContain('native_enum OrderStatus2 {');
+    expect(printed).toContain('@@map("order-status")');
+    expect(printed).toContain('@@map("order_status")');
+  });
+
   it('refuses a construct with no spelling by naming the model and field', () => {
     const json: unknown = JSON.parse(
       readFileSync(join(corpusDir, 'scalars', 'expected-contract.json'), 'utf8'),
