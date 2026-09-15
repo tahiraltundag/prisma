@@ -4,7 +4,7 @@ Reads a Prisma 7 `schema.prisma` as a Prisma 8 contract source for the SQL famil
 
 ## Responsibilities
 
-- `prisma7Schema(path, options)` returns a `ContractConfig` (format `prisma7`) whose `source.load` reads the input, parses every `.prisma` file with `@internal/psl-parser`, and runs the Prisma 7 interpreter. A file input reads that file; a directory input reads every `.prisma` file directly under it, sorted by name (not recursive). The default `output` is `contract.json` in the directory that holds the file or the directory, never inside the directory and never named after the file; `options.output` overrides it.
+- `prisma7Schema(path, options)` returns a `ContractConfig` (format `prisma7`) whose `source.load` reads the input, parses every `.prisma` file with `@internal/psl-parser`, and runs the Prisma 7 interpreter. A file input reads that file; a directory input reads every `.prisma` file under it, nested directories included, sorted by path, as Prisma 7 reads a schema directory. The default `output` is `contract.json` in the directory that holds the file or the directory, never inside the directory and never named after the file; `options.output` overrides it.
 - The interpreter turns the Prisma 7 dialect into a validated SQL contract using the same lowering helpers as `@internal/sql-contract-psl`: models, columns, native types, namespaces (`@@schema`), and native enums. Every construct it does not support is a diagnostic with a span; nothing is changed silently.
 - `src/native-types.ts` holds only the mapping mechanism. The table of what Prisma 7 creates for each scalar and `@db.*` type is target knowledge: the Postgres one is `prisma7PostgresTypeMap` in `@internal/target-postgres/prisma7-type-map`, derived from what `prisma@7.10.0` creates for the reference schema in `test/integration/test/fixtures/prisma7-source/reference/`, and the facade passes it in as `typeMap`.
 
@@ -81,7 +81,7 @@ By decision (option (a)), a generator or `@updatedAt` on an optional field is `P
 
 ## Multi-file input
 
-A directory input is read file by file in sorted name order; the datasource check runs once over all of them. A model or enum declared in more than one file is `PSL_DUPLICATE_DECLARATION` on the later file, the same code the parser's symbol table uses for a duplicate within one file.
+A directory input is read file by file in sorted path order, nested directories included, and a diagnostic names a nested file by its path under the directory (`prisma/schema/models/user.prisma`); the datasource check runs once over all of them. A model or enum declared in more than one file is `PSL_DUPLICATE_DECLARATION` on the later file, the same code the parser's symbol table uses for a duplicate within one file.
 
 ## Tests
 

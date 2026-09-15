@@ -9,7 +9,7 @@ import type { SqlNamespaceBase, SqlNamespaceInput } from '@internal/sql-contract
 import { applySqlSpecifierControlPolicy } from '@internal/sql-contract-ts/contract-builder';
 import { InternalError } from '@internal/utils/internal-error';
 import { notOk, ok } from '@internal/utils/result';
-import { basename, dirname, extname, join } from 'pathe';
+import { dirname, extname, join, normalize } from 'pathe';
 import { prisma7Diagnostic } from './diagnostics';
 import { interpretPrisma7Documents, type Prisma7Document } from './interpreter';
 import type { Prisma7TypeMap } from './native-types';
@@ -60,14 +60,30 @@ function mapParseDiagnostics(
   }));
 }
 
-async function listSchemaFiles(absolutePath: string, displayPath: string): Promise<string[]> {
+interface SchemaFile {
+  /** The path shown in diagnostics: the input path, or the file's path under the input directory. */
+  readonly sourceId: string;
+  readonly absolutePath: string;
+}
+
+/**
+ * The files a Prisma 7 schema input names: the file itself, or every `.prisma`
+ * file under the directory, nested directories included, as Prisma 7 reads a
+ * schema directory. Sorted by path so duplicate detection blames the later file
+ * deterministically.
+ */
+async function listSchemaFiles(absolutePath: string, displayPath: string): Promise<SchemaFile[]> {
   const info = await stat(absolutePath);
-  if (!info.isDirectory()) return [displayPath];
-  const entries = await readdir(absolutePath);
+  if (!info.isDirectory()) return [{ sourceId: displayPath, absolutePath }];
+  const entries = await readdir(absolutePath, { recursive: true });
   return entries
     .filter((entry) => extname(entry) === '.prisma')
+    .map((entry) => normalize(entry))
     .sort()
-    .map((entry) => join(displayPath, entry));
+    .map((entry) => ({
+      sourceId: join(displayPath, entry),
+      absolutePath: join(absolutePath, entry),
+    }));
 }
 
 export function prisma7Schema(schemaPath: string, options: Prisma7SchemaOptions): ContractConfig {
@@ -82,7 +98,7 @@ export function prisma7Schema(schemaPath: string, options: Prisma7SchemaOptions)
             'prisma7Schema: context.resolvedInputs is empty. The CLI config loader should populate it positional-matched with source.inputs.',
           );
         }
-        let files: string[];
+        let files: SchemaFile[];
         try {
           files = await listSchemaFiles(absolutePath, schemaPath);
         } catch (error) {
@@ -98,24 +114,26 @@ export function prisma7Schema(schemaPath: string, options: Prisma7SchemaOptions)
         const documents: Prisma7Document[] = [];
         const seedDiagnostics: ContractSourceDiagnostic[] = [];
         for (const file of files) {
-          const absoluteFile =
-            file === schemaPath ? absolutePath : join(absolutePath, basename(file));
           let schema: string;
           try {
-            schema = await readFile(absoluteFile, 'utf-8');
+            schema = await readFile(file.absolutePath, 'utf-8');
           } catch (error) {
             const message = String(error);
             return notOk({
-              summary: `Failed to read Prisma 7 schema at "${file}"`,
+              summary: `Failed to read Prisma 7 schema at "${file.sourceId}"`,
               diagnostics: [
-                prisma7Diagnostic('PRISMA7_SCHEMA_READ_FAILED', message, file, undefined),
+                prisma7Diagnostic('PRISMA7_SCHEMA_READ_FAILED', message, file.sourceId, undefined),
               ],
-              meta: { schemaPath: file, absoluteSchemaPath: absoluteFile, cause: message },
+              meta: {
+                schemaPath: file.sourceId,
+                absoluteSchemaPath: file.absolutePath,
+                cause: message,
+              },
             });
           }
           const { document, sourceFile, diagnostics } = parse(schema);
-          seedDiagnostics.push(...mapParseDiagnostics(diagnostics, sourceFile, file));
-          documents.push({ document, sourceFile, sourceId: file });
+          seedDiagnostics.push(...mapParseDiagnostics(diagnostics, sourceFile, file.sourceId));
+          documents.push({ document, sourceFile, sourceId: file.sourceId });
         }
 
         const interpreted = interpretPrisma7Documents({
