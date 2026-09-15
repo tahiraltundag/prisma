@@ -425,18 +425,30 @@ export function lowerRelations(
     modelIdColumns.set(junction.modelName, ['A', 'B']);
     modelUniqueColumnSets.set(junction.modelName, [['A', 'B']]);
   }
+  // The shared helper reports every diagnostic against one sourceId, so the
+  // candidates are paired one declaring file at a time: a diagnostic then
+  // names the file that declares the relation field it is about.
   const pairingDiagnostics: ContractSourceDiagnostic[] = [];
-  applyBackrelationCandidates({
-    backrelationCandidates: candidates,
-    fkRelationsByPair,
-    invalidFkPairings,
-    fkRelationsByDeclaringModel,
-    modelIdColumns,
-    modelUniqueColumnSets,
-    modelRelations,
-    diagnostics: pairingDiagnostics,
-    sourceId: models.values().next().value?.sourceId ?? 'schema.prisma',
-  });
+  const candidatesBySourceId = new Map<string, ModelBackrelationCandidate[]>();
+  for (const candidate of candidates) {
+    const sourceId = models.get(candidate.modelName)?.sourceId ?? 'schema.prisma';
+    const group = candidatesBySourceId.get(sourceId) ?? [];
+    candidatesBySourceId.set(sourceId, group);
+    group.push(candidate);
+  }
+  for (const [sourceId, backrelationCandidates] of candidatesBySourceId) {
+    applyBackrelationCandidates({
+      backrelationCandidates,
+      fkRelationsByPair,
+      invalidFkPairings,
+      fkRelationsByDeclaringModel,
+      modelIdColumns,
+      modelUniqueColumnSets,
+      modelRelations,
+      diagnostics: pairingDiagnostics,
+      sourceId,
+    });
+  }
   for (const diagnostic of pairingDiagnostics) {
     diagnostics.push(
       diagnostic.code.startsWith('PSL_') && diagnostic.code.endsWith('_BACKRELATION')
